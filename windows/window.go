@@ -2,18 +2,21 @@ package windows
 
 import (
 	gl "github.com/go-gl/gl/v3.3-core/gl"
-	glfw "github.com/go-gl/glfw3"
+	"github.com/go-gl/glfw/v3.1/glfw"
 	"time"
 )
 
 func InitWindowing() {
-	glfw.SetErrorCallback(func(code glfw.ErrorCode, desc string) {
-		panic(desc)
-	})
 
-	if !glfw.Init() {
-		panic("Can't init glfw!")
+	if err := glfw.Init(); err != nil {
+		panic("Can't init glfw: " + err.Error())
 	}
+
+	glfw.WindowHint(glfw.Resizable, glfw.False)
+	glfw.WindowHint(glfw.ContextVersionMajor, 3)
+	glfw.WindowHint(glfw.ContextVersionMinor, 3)
+	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
+	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
 
 }
 
@@ -133,4 +136,8 @@ func (self *Window) AddOverlay(id string, scene Scene) {
 		panic("Tried adding overlay twice to window")
 	}
 	self.overlays[id] = scene
+}
+
+func (self *Window) ProcessInput() {
+
 }

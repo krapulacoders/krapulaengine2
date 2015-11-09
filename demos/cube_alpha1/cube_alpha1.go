@@ -5,19 +5,18 @@ package main
 import (
 	"fmt"
 	gl "github.com/go-gl/gl/v3.3-core/gl"
-	glfw "github.com/go-gl/glfw3"
+	"github.com/go-gl/glfw/v3.1/glfw"
 	"github.com/go-gl/mathgl/mgl32"
 	. "github.com/krapulacoders/krapulaengine2/windows"
-	"strings"
+	"runtime"
 )
 
-var window_width = 800
-var window_height = 600
+var window_width = 1200
+var window_height = 700
 
 func main() {
-	glfw.SetErrorCallback(func(code glfw.ErrorCode, desc string) {
-		panic(desc)
-	})
+
+	runtime.LockOSThread()
 
 	InitWindowing()
 
@@ -50,7 +49,13 @@ type HelloWorldScene struct {
 func newHelloWorldScene() *HelloWorldScene {
 	sc := new(HelloWorldScene)
 	// Configure the vertex and fragment shaders
-	program, err := newProgram(vertexShader, fragmentShader)
+	setupShaders(sc)
+
+	return sc
+}
+
+func setupShaders(sc *HelloWorldScene) {
+	program, err := NewProgram(vertexShader, fragmentShader)
 	if err != nil {
 		panic(err)
 	}
@@ -60,13 +65,16 @@ func newHelloWorldScene() *HelloWorldScene {
 	projectionUniform := gl.GetUniformLocation(program, gl.Str("projection\x00"))
 	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
-	camera := mgl32.LookAtV(mgl32.Vec3{3, 3, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
+	camera := mgl32.LookAtV(mgl32.Vec3{5, 5, 5}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
 	cameraUniform := gl.GetUniformLocation(program, gl.Str("camera\x00"))
 	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
 	model := mgl32.Ident4()
 	sc.modelUniform = gl.GetUniformLocation(program, gl.Str("model\x00"))
 	gl.UniformMatrix4fv(sc.modelUniform, 1, false, &model[0])
+
+	uniformColor := int32(gl.GetUniformLocation(program, gl.Str("triangleColor\x00")))
+	gl.Uniform4f(uniformColor, 1.0, 0.0, 1.0, 1.0)
 
 	gl.BindFragDataLocation(program, 0, gl.Str("outputColor\x00"))
 
@@ -81,16 +89,6 @@ func newHelloWorldScene() *HelloWorldScene {
 	vertAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vert\x00")))
 	gl.EnableVertexAttribArray(vertAttrib)
 	gl.VertexAttribPointer(vertAttrib, 3, gl.FLOAT, false, 5*4, gl.PtrOffset(0))
-
-	uniColor := int32(gl.GetUniformLocation(program, gl.Str("triangleColor\x00")))
-	gl.Uniform4f(uniColor, 1.0, 0.0, 1.0, 1.0)
-
-	// Configure global settings
-	gl.Enable(gl.DEPTH_TEST)
-	gl.DepthFunc(gl.LESS)
-	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
-
-	return sc
 }
 
 func (self *HelloWorldScene) Render() {
@@ -99,14 +97,24 @@ func (self *HelloWorldScene) Render() {
 	elapsed := time - self.previousTime
 	self.previousTime = time
 
-	self.angle += float32(elapsed)
+	self.angle += float32(elapsed) * 10
+	//fmt.Println(self.angle)
+	gl.Enable(gl.DEPTH_TEST)
+	gl.DepthFunc(gl.LESS)
+	gl.ClearColor(1.0, 1.0, 1.0, 1.0)
+
+	//color := []float32{1, 0, 0, 1}
+	//gl.ClearBufferfv(gl.COLOR, 0, &color[0])
+
 	model := mgl32.HomogRotate3D(self.angle, mgl32.Vec3{0, 1, 0})
 
 	// Render
 	gl.UseProgram(self.program)
 	gl.UniformMatrix4fv(self.modelUniform, 1, false, &model[0])
 	gl.BindVertexArray(self.vao)
-	gl.DrawArrays(gl.TRIANGLES, 0, 6*2*3)
+	gl.PointSize(30)
+	gl.LineWidth(30)
+	gl.DrawArrays(gl.LINES, 0, 6*2*3)
 }
 
 // Processes input events
@@ -127,83 +135,30 @@ var vertexShader = `
 uniform mat4 projection;
 uniform mat4 camera;
 uniform mat4 model;
+uniform vec4 triangleColor;
+
 in vec3 vert;
-in vec2 vertTexCoord;
+out vec4 color;
 void main() {
+	color = triangleColor;
     gl_Position = projection * camera * model * vec4(vert, 1);
 }
 ` + "\x00"
 
 var fragmentShader = `
 #version 330
-uniform vec4 triangleColor;
+in vec4 color;
 out vec4 outputColor;
 void main() {
-    outputColor = triangleColor;
+    outputColor = color;
+    //outputColor = vec4(1.0, 1.0, 1.0, 1.0);
 }
 ` + "\x00"
-
-func newProgram(vertexShaderSource, fragmentShaderSource string) (uint32, error) {
-	vertexShader, err := compileShader(vertexShaderSource, gl.VERTEX_SHADER)
-	if err != nil {
-		return 0, err
-	}
-
-	fragmentShader, err := compileShader(fragmentShaderSource, gl.FRAGMENT_SHADER)
-	if err != nil {
-		return 0, err
-	}
-
-	program := gl.CreateProgram()
-
-	gl.AttachShader(program, vertexShader)
-	gl.AttachShader(program, fragmentShader)
-	gl.LinkProgram(program)
-
-	var status int32
-	gl.GetProgramiv(program, gl.LINK_STATUS, &status)
-	if status == gl.FALSE {
-		var logLength int32
-		gl.GetProgramiv(program, gl.INFO_LOG_LENGTH, &logLength)
-
-		log := strings.Repeat("\x00", int(logLength+1))
-		gl.GetProgramInfoLog(program, logLength, nil, gl.Str(log))
-
-		return 0, fmt.Errorf("failed to link program: %v", log)
-	}
-
-	gl.DeleteShader(vertexShader)
-	gl.DeleteShader(fragmentShader)
-
-	return program, nil
-}
-
-func compileShader(source string, shaderType uint32) (uint32, error) {
-	shader := gl.CreateShader(shaderType)
-
-	csource := gl.Str(source)
-	gl.ShaderSource(shader, 1, &csource, nil)
-	gl.CompileShader(shader)
-
-	var status int32
-	gl.GetShaderiv(shader, gl.COMPILE_STATUS, &status)
-	if status == gl.FALSE {
-		var logLength int32
-		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
-
-		log := strings.Repeat("\x00", int(logLength+1))
-		gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
-
-		return 0, fmt.Errorf("failed to compile %v: %v", source, log)
-	}
-
-	return shader, nil
-}
 
 var cubeVertices = []float32{
 	//  X, Y, Z, U, V
 	// Bottom
-	-1.0, -1.0, -1.0, 0.0, 0.0,
+	-0.5, -0.5, -1.0, 0.0, 0.0,
 	1.0, -1.0, -1.0, 1.0, 0.0,
 	-1.0, -1.0, 1.0, 0.0, 1.0,
 	1.0, -1.0, -1.0, 1.0, 0.0,

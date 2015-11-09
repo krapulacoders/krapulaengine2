@@ -1,7 +1,7 @@
 package windows
 
 import (
-	glfw "github.com/go-gl/glfw3"
+	"github.com/go-gl/glfw/v3.1/glfw"
 	"testing"
 	"time"
 )
@@ -9,11 +9,8 @@ import (
 /* Tests that glfw3 is properly set up and working on the system.
  */
 func TestGLFW(t *testing.T) {
-	glfw.SetErrorCallback(func(code glfw.ErrorCode, desc string) {
-		t.Error(desc)
-	})
 
-	if !glfw.Init() {
+	if err := glfw.Init(); err != nil {
 		t.Error("Can't init glfw!")
 		t.FailNow()
 	}
