@@ -1,10 +1,10 @@
 package windows
 
 const STATE_UNINITED = 0
-const STATE_INITED = 0
-const STATE_RUNNING = 0
-const STATE_PAUSED = 0
-const STATE_TERMINATED = 0
+const STATE_INITED = 1
+const STATE_RUNNING = 2
+const STATE_PAUSED = 3
+const STATE_TERMINATED = 4
 
 // Scenes are responsible for handling input and rendering their content.
 // They can be in the following states:
@@ -41,12 +41,12 @@ type Scene interface {
 	// Set the scene in running mode
 	Run()
 	// Returns true if the scene is in state STATE_RUNNING
-	isRunning() bool
+	IsRunning() bool
 
 	// Pause the scene
 	Pause()
 	// Returns true if the scene is in state STATE_PAUSED
-	isPaused() bool
+	IsPaused() bool
 
 	Exit()
 	// returns true if this scene is in STATE_TERMINATED.
@@ -54,32 +54,70 @@ type Scene interface {
 }
 
 // Partial Scene Implementation that implements shared basic fields and functionality
+// You still need to implement the following functions yourself:
+// Init()
+// HandleInput(key_events []KeyboardInputEvent, mouse_events []MouseInputEvent)
+// Tick(timedelta float64)
+// Render()
 
-type SceneImpl struct {
+type BasicSceneImpl struct {
 	focused bool
 	state   int
 }
 
-func (self *SceneImpl) SetFocused(focused bool) {
+func (self *BasicSceneImpl) SetFocused(focused bool) {
 	self.focused = focused
 }
 
-func (self *SceneImpl) IsFocused() bool {
+func (self *BasicSceneImpl) IsFocused() bool {
 	return self.focused
 }
 
-func (self *SceneImpl) IsInited() bool {
+func (self *BasicSceneImpl) IsInited() bool {
 	return self.state != STATE_TERMINATED && self.state != STATE_UNINITED
 }
 
-func (self *SceneImpl) IsRunning() bool {
+func (self *BasicSceneImpl) IsRunning() bool {
 	return self.state == STATE_RUNNING
 }
 
-func (self *SceneImpl) IsPaused() bool {
+func (self *BasicSceneImpl) IsPaused() bool {
 	return self.state == STATE_PAUSED
 }
 
-func (self *SceneImpl) IsTerminated() bool {
+func (self *BasicSceneImpl) IsTerminated() bool {
 	return self.state == STATE_TERMINATED
+}
+
+func (self *BasicSceneImpl) SetState(state int) {
+	self.state = state
+}
+
+// A simple scene implementation to use when you want default state transitions and input
+type SimpleSceneImpl struct {
+	BasicSceneImpl
+}
+
+func (self *SimpleSceneImpl) AcceptsInput() bool {
+	return true
+}
+
+func (self *SimpleSceneImpl) Run() {
+	if !self.IsInited() {
+		panic("Cannot run scene that hasn't been inited. state: " + string(self.state))
+	} else {
+		self.SetState(STATE_RUNNING)
+	}
+}
+
+func (self *SimpleSceneImpl) Pause() {
+	if !self.IsRunning() {
+		panic("Cannot pause scene that isn't running")
+	} else {
+		self.SetState(STATE_PAUSED)
+	}
+}
+
+func (self *SimpleSceneImpl) Exit() {
+	self.SetState(STATE_TERMINATED)
 }

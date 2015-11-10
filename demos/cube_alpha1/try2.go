@@ -28,103 +28,13 @@ func main() {
 	InitWindowing()
 	defer glfw.Terminate()
 
-	window, err := glfw.CreateWindow(windowWidth, windowHeight, "Cube", nil, nil)
-	if err != nil {
-		panic(err)
-	}
-	window.MakeContextCurrent()
+	window := NewWindow(windowWidth, windowHeight)
 
-	// Initialize Glow
-	if err := gl.Init(); err != nil {
-		panic(err)
-	}
+	scene := NewCubeScene()
+	window.AddScene("cube", scene)
+	window.SetCurrentScene("cube")
+	window.MainLoop()
 
-	version := gl.GoStr(gl.GetString(gl.VERSION))
-	fmt.Println("OpenGL version", version)
-
-	// Configure the vertex and fragment shaders
-	program, err := NewProgram(vertexShader, fragmentShader)
-	if err != nil {
-		panic(err)
-	}
-
-	gl.UseProgram(program)
-
-	projection := mgl32.Perspective(mgl32.DegToRad(45.0), float32(windowWidth)/windowHeight, 0.1, 10.0)
-	projectionUniform := gl.GetUniformLocation(program, gl.Str("projection\x00"))
-	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
-
-	camera := mgl32.LookAtV(mgl32.Vec3{3, 3, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
-	cameraUniform := gl.GetUniformLocation(program, gl.Str("camera\x00"))
-	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
-
-	model := mgl32.Ident4()
-	modelUniform := gl.GetUniformLocation(program, gl.Str("model\x00"))
-	gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
-
-	textureUniform := gl.GetUniformLocation(program, gl.Str("tex\x00"))
-	gl.Uniform1i(textureUniform, 0)
-
-	gl.BindFragDataLocation(program, 0, gl.Str("outputColor\x00"))
-
-	// Load the texture
-	texture, err := newTexture("square.png")
-	if err != nil {
-		panic(err)
-	}
-
-	// Configure the vertex data
-	var vao uint32
-	gl.GenVertexArrays(1, &vao)
-	gl.BindVertexArray(vao)
-
-	var vbo uint32
-	gl.GenBuffers(1, &vbo)
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
-	gl.BufferData(gl.ARRAY_BUFFER, len(cubeVertices)*4, gl.Ptr(cubeVertices), gl.STATIC_DRAW)
-
-	vertAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vert\x00")))
-	gl.EnableVertexAttribArray(vertAttrib)
-	gl.VertexAttribPointer(vertAttrib, 3, gl.FLOAT, false, 5*4, gl.PtrOffset(0))
-
-	texCoordAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vertTexCoord\x00")))
-	gl.EnableVertexAttribArray(texCoordAttrib)
-	gl.VertexAttribPointer(texCoordAttrib, 2, gl.FLOAT, false, 5*4, gl.PtrOffset(3*4))
-
-	// Configure global settings
-	gl.Enable(gl.DEPTH_TEST)
-	gl.DepthFunc(gl.LESS)
-	gl.ClearColor(1.0, 1.0, 1.0, 1.0)
-
-	angle := 0.0
-	previousTime := glfw.GetTime()
-
-	for !window.ShouldClose() {
-		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-
-		// Update
-		time := glfw.GetTime()
-		elapsed := time - previousTime
-		previousTime = time
-
-		angle += elapsed
-		model = mgl32.HomogRotate3D(float32(angle), mgl32.Vec3{0, 1, 0})
-
-		// Render
-		gl.UseProgram(program)
-		gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
-
-		gl.BindVertexArray(vao)
-
-		gl.ActiveTexture(gl.TEXTURE0)
-		gl.BindTexture(gl.TEXTURE_2D, texture)
-
-		gl.DrawArrays(gl.TRIANGLES, 0, 6*2*3)
-
-		// Maintenance
-		window.SwapBuffers()
-		glfw.PollEvents()
-	}
 }
 
 func newTexture(file string) (uint32, error) {
@@ -238,4 +148,107 @@ var cubeVertices = []float32{
 	1.0, -1.0, 1.0, 1.0, 1.0,
 	1.0, 1.0, -1.0, 0.0, 0.0,
 	1.0, 1.0, 1.0, 0.0, 1.0,
+}
+
+type CubeScene struct {
+	SimpleSceneImpl
+
+	angle        float32
+	model        mgl32.Mat4
+	program      uint32
+	modelUniform int32
+	vao, vbo     uint32
+	texture      uint32
+}
+
+func NewCubeScene() *CubeScene {
+	scene := new(CubeScene)
+	scene.SetState(STATE_UNINITED)
+	return scene
+}
+
+func (self *CubeScene) Tick(timedelta float64) {
+	self.angle += float32(timedelta)
+}
+
+func (self *CubeScene) Render() {
+
+	self.model = mgl32.HomogRotate3D(float32(self.angle), mgl32.Vec3{0, 1, 0})
+
+	// Render
+	gl.UseProgram(self.program)
+	gl.UniformMatrix4fv(self.modelUniform, 1, false, &self.model[0])
+
+	gl.BindVertexArray(self.vao)
+
+	gl.ActiveTexture(gl.TEXTURE0)
+	gl.BindTexture(gl.TEXTURE_2D, self.texture)
+
+	gl.DrawArrays(gl.TRIANGLES, 0, 6*2*3)
+}
+
+func (self *CubeScene) HandleInput(key_events []KeyboardInputEvent, mouse_events []MouseInputEvent) {
+	// nothing for now
+}
+
+func (self *CubeScene) Init() {
+	// Configure the vertex and fragment shaders
+	program, err := NewProgram(vertexShader, fragmentShader)
+	if err != nil {
+		panic(err)
+	}
+	self.program = program
+
+	gl.UseProgram(program)
+
+	projection := mgl32.Perspective(mgl32.DegToRad(45.0), float32(windowWidth)/windowHeight, 0.1, 10.0)
+	projectionUniform := gl.GetUniformLocation(program, gl.Str("projection\x00"))
+	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
+
+	camera := mgl32.LookAtV(mgl32.Vec3{3, 3, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
+	cameraUniform := gl.GetUniformLocation(program, gl.Str("camera\x00"))
+	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
+
+	self.model = mgl32.Ident4()
+	self.modelUniform = gl.GetUniformLocation(program, gl.Str("model\x00"))
+	gl.UniformMatrix4fv(self.modelUniform, 1, false, &self.model[0])
+
+	textureUniform := gl.GetUniformLocation(program, gl.Str("tex\x00"))
+	gl.Uniform1i(textureUniform, 0)
+
+	gl.BindFragDataLocation(program, 0, gl.Str("outputColor\x00"))
+
+	// Load the texture
+	texture, err := newTexture("square.png")
+	if err != nil {
+		panic(err)
+	}
+	self.texture = texture
+
+	// Configure the vertex data
+	gl.GenVertexArrays(1, &self.vao)
+	gl.BindVertexArray(self.vao)
+
+	gl.GenBuffers(1, &self.vbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, self.vbo)
+	gl.BufferData(gl.ARRAY_BUFFER, len(cubeVertices)*4, gl.Ptr(cubeVertices), gl.STATIC_DRAW)
+
+	vertAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vert\x00")))
+	gl.EnableVertexAttribArray(vertAttrib)
+	gl.VertexAttribPointer(vertAttrib, 3, gl.FLOAT, false, 5*4, gl.PtrOffset(0))
+
+	texCoordAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vertTexCoord\x00")))
+	gl.EnableVertexAttribArray(texCoordAttrib)
+	gl.VertexAttribPointer(texCoordAttrib, 2, gl.FLOAT, false, 5*4, gl.PtrOffset(3*4))
+
+	// Configure global settings
+	gl.Enable(gl.DEPTH_TEST)
+	gl.DepthFunc(gl.LESS)
+	gl.ClearColor(1.0, 1.0, 1.0, 1.0)
+
+	self.angle = 0.0
+	self.SetState(STATE_INITED)
+	if !self.IsInited() {
+		panic("setting init state failed")
+	}
 }
