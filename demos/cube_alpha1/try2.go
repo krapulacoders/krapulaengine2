@@ -153,22 +153,24 @@ var cubeVertices = []float32{
 type CubeScene struct {
 	SimpleSceneImpl
 
-	angle        float32
-	model        mgl32.Mat4
-	program      uint32
-	modelUniform int32
-	vao, vbo     uint32
-	texture      uint32
+	angle            float32
+	model            mgl32.Mat4
+	program          uint32
+	modelUniform     int32
+	vao, vbo         uint32
+	texture          uint32
+	rotate_direction float32
 }
 
 func NewCubeScene() *CubeScene {
 	scene := new(CubeScene)
 	scene.SetState(STATE_UNINITED)
+	scene.rotate_direction = 1
 	return scene
 }
 
 func (self *CubeScene) Tick(timedelta float64) {
-	self.angle += float32(timedelta)
+	self.angle += self.rotate_direction * float32(timedelta)
 }
 
 func (self *CubeScene) Render() {
@@ -189,6 +191,14 @@ func (self *CubeScene) Render() {
 
 func (self *CubeScene) HandleInput(key_events []KeyboardInputEvent, mouse_events []MouseInputEvent) {
 	// nothing for now
+	for _, event := range key_events {
+		switch event.Key {
+		case glfw.KeyLeft:
+			self.rotate_direction = -1
+		case glfw.KeyRight:
+			self.rotate_direction = 1
+		}
+	}
 }
 
 func (self *CubeScene) Init() {
@@ -248,7 +258,4 @@ func (self *CubeScene) Init() {
 
 	self.angle = 0.0
 	self.SetState(STATE_INITED)
-	if !self.IsInited() {
-		panic("setting init state failed")
-	}
 }

@@ -5,15 +5,15 @@ import (
 )
 
 type KeyboardInputEvent struct {
-	key      glfw.Key
-	scancode int
-	action   glfw.Action
-	mod      glfw.ModifierKey
+	Key      glfw.Key
+	Scancode int
+	Action   glfw.Action
+	Mod      glfw.ModifierKey
 }
 
 type MouseInputEvent struct {
-	button glfw.MouseButton
-	action glfw.Action
-	mod    glfw.ModifierKey
-	x, y   float32
+	Button glfw.MouseButton
+	Action glfw.Action
+	Mod    glfw.ModifierKey
+	X, Y   float32
 }

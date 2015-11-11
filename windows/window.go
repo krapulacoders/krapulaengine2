@@ -190,7 +190,8 @@ func (self *Window) processInput() {
 
 	// process input
 	glfw.PollEvents()
-
+	// clear the slice
+	self.key_events = self.key_events[:0]
 	// key events
 	has_input := true
 	for has_input {
@@ -204,6 +205,8 @@ func (self *Window) processInput() {
 	}
 
 	// mouse events
+	// clear the slice
+	self.mouse_events = self.mouse_events[:0]
 	has_input = true
 	for has_input {
 		select {
