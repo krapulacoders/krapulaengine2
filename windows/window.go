@@ -20,6 +20,13 @@ func InitWindowing() {
 
 }
 
+type WindowAction int
+
+const (
+	WINDOW_ACTION_NONE = iota
+	WINDOW_ACTION_EXIT = iota
+)
+
 //
 type Window struct {
 	window *glfw.Window
@@ -45,6 +52,7 @@ type Window struct {
 	mouse_x, mouse_y float32
 	key_events       []KeyboardInputEvent
 	mouse_events     []MouseInputEvent
+	key_states       []bool
 }
 
 // Allocates a new Window
@@ -60,6 +68,7 @@ func NewWindow(width, height int) *Window {
 	w.mouse_input = make(chan MouseInputEvent, 100)
 	w.key_events = make([]KeyboardInputEvent, 0, 100)
 	w.mouse_events = make([]MouseInputEvent, 0, 100)
+	w.key_states = make([]bool, glfw.KeyLast+1)
 	return w
 }
 
@@ -198,7 +207,11 @@ func (self *Window) processInput() {
 		select {
 		case keyEvent := <-self.key_input:
 			self.key_events = append(self.key_events, keyEvent)
-
+			if keyEvent.Action == glfw.Release {
+				self.key_states[keyEvent.Key] = false
+			} else {
+				self.key_states[keyEvent.Key] = true
+			}
 		default:
 			has_input = false
 		}
@@ -223,23 +236,31 @@ func (self *Window) processInput() {
 
 	for _, overlay := range self.overlays {
 		if overlay.AcceptsInput() {
-			overlay.HandleInput(self.key_events, self.mouse_events)
+			action := overlay.HandleInput(self.key_events, self.mouse_events)
+			switch action {
+			case WINDOW_ACTION_EXIT:
+				self.Exit()
+			}
 		}
 	}
 
 	for _, scene := range self.scenes {
 		if scene.AcceptsInput() {
-			scene.HandleInput(self.key_events, self.mouse_events)
+			action := scene.HandleInput(self.key_events, self.mouse_events)
+			switch action {
+			case WINDOW_ACTION_EXIT:
+				self.Exit()
+			}
 		}
 	}
 }
 
 func (self *Window) tick(timedelta float64) {
 	for _, scene := range self.scenes {
-		scene.Tick(timedelta)
+		scene.Tick(timedelta, self.key_states)
 	}
 	for _, overlay := range self.overlays {
-		overlay.Tick(timedelta)
+		overlay.Tick(timedelta, self.key_states)
 	}
 }
 

@@ -169,8 +169,13 @@ func NewCubeScene() *CubeScene {
 	return scene
 }
 
-func (self *CubeScene) Tick(timedelta float64) {
-	self.angle += self.rotate_direction * float32(timedelta)
+func (self *CubeScene) Tick(timedelta float64, key_states []bool) {
+	if key_states[glfw.KeyLeft] {
+		self.angle -= float32(timedelta)
+	}
+	if key_states[glfw.KeyRight] {
+		self.angle += float32(timedelta)
+	}
 }
 
 func (self *CubeScene) Render() {
@@ -189,16 +194,15 @@ func (self *CubeScene) Render() {
 	gl.DrawArrays(gl.TRIANGLES, 0, 6*2*3)
 }
 
-func (self *CubeScene) HandleInput(key_events []KeyboardInputEvent, mouse_events []MouseInputEvent) {
+func (self *CubeScene) HandleInput(key_events []KeyboardInputEvent, mouse_events []MouseInputEvent) WindowAction {
 	// nothing for now
 	for _, event := range key_events {
 		switch event.Key {
-		case glfw.KeyLeft:
-			self.rotate_direction = -1
-		case glfw.KeyRight:
-			self.rotate_direction = 1
+		case glfw.KeyEscape:
+			return WINDOW_ACTION_EXIT
 		}
 	}
+	return WINDOW_ACTION_NONE
 }
 
 func (self *CubeScene) Init() {

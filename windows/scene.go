@@ -1,10 +1,12 @@
 package windows
 
-const STATE_UNINITED = 0
-const STATE_INITED = 1
-const STATE_RUNNING = 2
-const STATE_PAUSED = 3
-const STATE_TERMINATED = 4
+const (
+	STATE_UNINITED   = iota
+	STATE_INITED     = iota
+	STATE_RUNNING    = iota
+	STATE_PAUSED     = iota
+	STATE_TERMINATED = iota
+)
 
 // Scenes are responsible for handling input and rendering their content.
 // They can be in the following states:
@@ -21,10 +23,10 @@ type Scene interface {
 	AcceptsInput() bool
 
 	// Processes input events
-	HandleInput(key_events []KeyboardInputEvent, mouse_events []MouseInputEvent)
+	HandleInput(key_events []KeyboardInputEvent, mouse_events []MouseInputEvent) WindowAction
 
-	// Update the game frame
-	Tick(timedelta float64)
+	// Update the game frame and process time-dependant input
+	Tick(timedelta float64, key_states []bool)
 
 	// Render the scene
 	Render()
