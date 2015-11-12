@@ -3,16 +3,18 @@
 package main
 
 import (
-	"fmt"
 	"image"
 	"image/draw"
 	_ "image/png"
-	"os"
+	"io/ioutil"
 	"runtime"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/go-gl/glfw/v3.1/glfw"
 	"github.com/go-gl/mathgl/mgl32"
+	"github.com/golang/freetype"
+	"github.com/golang/freetype/truetype"
+	"github.com/krapulacoders/krapulaengine2/graphics"
 	. "github.com/krapulacoders/krapulaengine2/windows"
 )
 
@@ -28,51 +30,58 @@ func main() {
 	InitWindowing()
 	defer glfw.Terminate()
 
+	font_regular, err := readFont("RobotoMono-Regular.ttf")
+	img, err := GenerateImageFromFont("Hello World", font_regular, 16)
+	if err != nil {
+		panic(err.Error())
+	}
 	window := NewWindow(windowWidth, windowHeight)
 
-	scene := NewCubeScene()
+	scene := NewCubeScene(img)
 	window.AddScene("cube", scene)
 	window.SetCurrentScene("cube")
 	window.MainLoop()
 
 }
 
-func newTexture(file string) (uint32, error) {
-	imgFile, err := os.Open(file)
+func GenerateImageFromFont(text string, font *truetype.Font, font_size float64) (image.Image, error) {
+	fg, bg := image.Black, image.Transparent
+	rgba := image.NewRGBA(image.Rect(0, 0, 200, 20))
+	draw.Draw(rgba, rgba.Bounds(), bg, image.ZP, draw.Src)
+	c := freetype.NewContext()
+	dpi := 72.0
+	//line_spacing := 1.5
+	c.SetDPI(dpi)
+	c.SetFont(font)
+	c.SetFontSize(font_size)
+	c.SetClip(rgba.Bounds())
+	c.SetDst(rgba)
+	c.SetSrc(fg)
+	//c.SetHinting(font.HintingNone)
+	//c.SetHinting(font.HintingFull)
+
+	// Draw the text.
+	pt := freetype.Pt(10, 10+int(c.PointToFixed(font_size)>>6))
+	_, err := c.DrawString(text, pt)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	img, _, err := image.Decode(imgFile)
+	//pt.Y += c.PointToFixed(font_size * line_spacing)
+	return rgba, nil
+}
+
+func readFont(font_file string) (*truetype.Font, error) {
+	// Read the font data.
+	font_bytes, err := ioutil.ReadFile(font_file)
 	if err != nil {
-		return 0, err
+		return nil, err
+	}
+	font, err := freetype.ParseFont(font_bytes)
+	if err != nil {
+		return nil, err
 	}
 
-	rgba := image.NewRGBA(img.Bounds())
-	if rgba.Stride != rgba.Rect.Size().X*4 {
-		return 0, fmt.Errorf("unsupported stride")
-	}
-	draw.Draw(rgba, rgba.Bounds(), img, image.Point{0, 0}, draw.Src)
-
-	var texture uint32
-	gl.GenTextures(1, &texture)
-	gl.ActiveTexture(gl.TEXTURE0)
-	gl.BindTexture(gl.TEXTURE_2D, texture)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-	gl.TexImage2D(
-		gl.TEXTURE_2D,
-		0,
-		gl.RGBA,
-		int32(rgba.Rect.Size().X),
-		int32(rgba.Rect.Size().Y),
-		0,
-		gl.RGBA,
-		gl.UNSIGNED_BYTE,
-		gl.Ptr(rgba.Pix))
-
-	return texture, nil
+	return font, nil
 }
 
 var vertexShader = `
@@ -160,12 +169,14 @@ type CubeScene struct {
 	vao, vbo         uint32
 	texture          uint32
 	rotate_direction float32
+	image            image.Image
 }
 
-func NewCubeScene() *CubeScene {
+func NewCubeScene(img image.Image) *CubeScene {
 	scene := new(CubeScene)
 	scene.SetState(STATE_UNINITED)
 	scene.rotate_direction = 1
+	scene.image = img
 	return scene
 }
 
@@ -233,7 +244,9 @@ func (self *CubeScene) Init() {
 	gl.BindFragDataLocation(program, 0, gl.Str("outputColor\x00"))
 
 	// Load the texture
-	texture, err := newTexture("square.png")
+	//texture, err := graphics.NewTextureFromFile("square.png")
+	texture, err := graphics.NewTextureFromImage(self.image)
+
 	if err != nil {
 		panic(err)
 	}
