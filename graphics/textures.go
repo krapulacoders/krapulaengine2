@@ -18,16 +18,16 @@ func NewTextureFromFile(file string) (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	return NewTextureFromImage(img)
-
-}
-
-func NewTextureFromImage(img image.Image) (uint32, error) {
 	rgba := image.NewRGBA(img.Bounds())
 	if rgba.Stride != rgba.Rect.Size().X*4 {
 		return 0, fmt.Errorf("unsupported stride")
 	}
 	draw.Draw(rgba, rgba.Bounds(), img, image.Point{0, 0}, draw.Src)
+	return NewTextureFromImage(rgba)
+
+}
+
+func NewTextureFromImage(img *image.RGBA) (uint32, error) {
 
 	var texture uint32
 	gl.GenTextures(1, &texture)
@@ -41,12 +41,12 @@ func NewTextureFromImage(img image.Image) (uint32, error) {
 		gl.TEXTURE_2D,
 		0,
 		gl.RGBA,
-		int32(rgba.Rect.Size().X),
-		int32(rgba.Rect.Size().Y),
+		int32(img.Rect.Dx()),
+		int32(img.Rect.Dy()),
 		0,
 		gl.RGBA,
 		gl.UNSIGNED_BYTE,
-		gl.Ptr(rgba.Pix))
+		gl.Ptr(img.Pix))
 
 	return texture, nil
 }
