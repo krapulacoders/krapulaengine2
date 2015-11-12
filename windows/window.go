@@ -286,3 +286,7 @@ func (self *Window) render() {
 		self.quit = true
 	}
 }
+
+func (self *Window) GetSize() (int, int) {
+	return self.window.GetSize()
+}
