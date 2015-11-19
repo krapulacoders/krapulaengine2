@@ -7,8 +7,17 @@ import (
 	"github.com/krapulacoders/krapulaengine2/windows"
 )
 
-type TopContainer struct {
-	windows.BasicSceneImpl
+var TopContainer *TopContainerType
+
+func InitTopContainer() {
+	TopContainer = newTopContainer(windows.MainWindow)
+}
+
+// An invisible container that covers the entire window
+// It manages the shader programs.
+
+type TopContainerType struct {
+	windows.SimpleSceneImpl
 	children      []Component
 	width, height int
 	program       uint32
@@ -17,8 +26,8 @@ type TopContainer struct {
 	vao, vbo      int
 }
 
-func NewTopContainer(window *windows.Window) *TopContainer {
-	c := new(TopContainer)
+func newTopContainer(window *windows.Window) *TopContainerType {
+	c := new(TopContainerType)
 	c.SetState(windows.STATE_UNINITED)
 
 	c.width, c.height = window.GetSize()
@@ -26,13 +35,23 @@ func NewTopContainer(window *windows.Window) *TopContainer {
 	return c
 }
 
-func (self *TopContainer) Tick(timedelta float64, key_states []bool) {
+func (self *TopContainerType) Tick(timedelta float64, key_states []bool) {
+	for _, child := range self.children {
+		child.Tick(timedelta, key_states)
+	}
 }
 
-func (self *TopContainer) Render() {
+func (self *TopContainerType) Render() {
+	gl.Disable(gl.DEPTH_TEST)
+	gl.Enable(gl.BLEND)
+	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+
+	for _, child := range self.children {
+		child.Render()
+	}
 }
 
-func (self *TopContainer) HandleInput(key_events []windows.KeyboardInputEvent,
+func (self *TopContainerType) HandleInput(key_events []windows.KeyboardInputEvent,
 	mouse_events []windows.MouseInputEvent) windows.WindowAction {
 	// nothing for now
 	for _, event := range key_events {
@@ -41,12 +60,31 @@ func (self *TopContainer) HandleInput(key_events []windows.KeyboardInputEvent,
 	return windows.WINDOW_ACTION_NONE
 }
 
-const (
-	vertexShader   = ""
-	fragmentShader = ""
-)
+func (self *TopContainerType) Program() uint32 {
+	return self.program
+}
 
-func (self *TopContainer) Init() {
+var vertexShader = `
+#version 330
+in vec4 vertAndTexCoord;
+out vec2 fragTexCoord;
+void main() {
+    fragTexCoord = vec2(vertAndTexCoord[2], vertAndTexCoord[3]);
+    gl_Position = vec4(vertAndTexCoord[0], vertAndTexCoord[1], 0, 1);
+}
+` + "\x00"
+
+var fragmentShader = `
+#version 330
+uniform sampler2D tex;
+in vec2 fragTexCoord;
+out vec4 outputColor;
+void main() {
+    outputColor = texture(tex, fragTexCoord);
+}
+` + "\x00"
+
+func (self *TopContainerType) Init() {
 	// Configure the vertex and fragment shaders
 	program, err := windows.NewProgram(vertexShader, fragmentShader)
 	if err != nil {
@@ -55,47 +93,8 @@ func (self *TopContainer) Init() {
 	self.program = program
 
 	gl.UseProgram(program)
-	/*
-		projection := mgl32.Perspective(mgl32.DegToRad(45.0), float32(self.width)/float32(self.height), 0.1, 10.0)
-		projectionUniform := gl.GetUniformLocation(program, gl.Str("projection\x00"))
-		gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
-
-		camera := mgl32.LookAtV(mgl32.Vec3{3, 3, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
-		cameraUniform := gl.GetUniformLocation(program, gl.Str("camera\x00"))
-		gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
-
-		self.model = mgl32.Ident4()
-		self.modelUniform = gl.GetUniformLocation(program, gl.Str("model\x00"))
-		gl.UniformMatrix4fv(self.modelUniform, 1, false, &self.model[0])
-
-		textureUniform := gl.GetUniformLocation(program, gl.Str("tex\x00"))
-		gl.Uniform1i(textureUniform, 0)
-
-		gl.BindFragDataLocation(program, 0, gl.Str("outputColor\x00"))
-
-		// Configure the vertex data
-		gl.GenVertexArrays(1, &self.vao)
-		gl.BindVertexArray(self.vao)
-
-		gl.GenBuffers(1, &self.vbo)
-		gl.BindBuffer(gl.ARRAY_BUFFER, self.vbo)
-		gl.BufferData(gl.ARRAY_BUFFER, len(cubeVertices)*4, gl.Ptr(QuadVertices), gl.STATIC_DRAW)
-
-		vertAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vert\x00")))
-		gl.EnableVertexAttribArray(vertAttrib)
-		gl.VertexAttribPointer(vertAttrib, 3, gl.FLOAT, false, 5*4, gl.PtrOffset(0))
-
-		texCoordAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vertTexCoord\x00")))
-		gl.EnableVertexAttribArray(texCoordAttrib)
-		gl.VertexAttribPointer(texCoordAttrib, 2, gl.FLOAT, false, 5*4, gl.PtrOffset(3*4))
-
-		// Configure global settings
-		gl.Enable(gl.DEPTH_TEST)
-		gl.DepthFunc(gl.LESS)
-		gl.ClearColor(1.0, 1.0, 1.0, 1.0)
-
-	*/
+	// use texture 0
+	textureUniform := gl.GetUniformLocation(program, gl.Str("tex\x00"))
+	gl.Uniform1i(textureUniform, 0)
 	self.SetState(windows.STATE_INITED)
 }
-
-var quadVertices = []float32{}

@@ -31,12 +31,11 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
-	window := NewWindow(windowWidth, windowHeight)
 
 	scene := NewCubeScene(img)
-	window.AddScene("cube", scene)
-	window.SetCurrentScene("cube")
-	window.MainLoop()
+	MainWindow.AddScene("cube", scene)
+	MainWindow.SetCurrentScene("cube")
+	MainWindow.MainLoop()
 
 }
 

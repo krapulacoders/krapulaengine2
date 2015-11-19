@@ -33,11 +33,10 @@ func TestGLFW(t *testing.T) {
 // then close it.
 func TestWindow(t *testing.T) {
 	InitWindowing()
-	window := NewWindow(800, 600)
-	window.Init()
+	MainWindow.Init()
 	go func() {
 		time.Sleep(50 * time.Millisecond)
-		window.Exit()
+		MainWindow.Exit()
 	}()
-	window.MainLoop()
+	MainWindow.MainLoop()
 }

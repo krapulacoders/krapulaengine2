@@ -58,8 +58,8 @@ type Scene interface {
 // Partial Scene Implementation that implements shared basic fields and functionality
 // You still need to implement the following functions yourself:
 // Init()
-// HandleInput(key_events []KeyboardInputEvent, mouse_events []MouseInputEvent)
-// Tick(timedelta float64)
+// HandleInput(key_events []KeyboardInputEvent, mouse_events []MouseInputEvent) WindowAction
+// Tick(timedelta float64, key_states []bool)
 // Render()
 
 type BasicSceneImpl struct {

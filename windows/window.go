@@ -5,6 +5,8 @@ import (
 	"github.com/go-gl/glfw/v3.1/glfw"
 )
 
+var MainWindow = newWindow(800, 600)
+
 // Inits glfw
 func InitWindowing() {
 
@@ -56,7 +58,7 @@ type Window struct {
 }
 
 // Allocates a new Window
-func NewWindow(width, height int) *Window {
+func newWindow(width, height int) *Window {
 	w := new(Window)
 	w.scenes = make(map[string]Scene)
 	w.overlays = make(map[string]Scene)
