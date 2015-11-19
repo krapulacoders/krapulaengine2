@@ -10,7 +10,7 @@ import (
 )
 
 func GenerateImageFromFont(text string, font *truetype.Font, font_size float64) (*image.RGBA, error) {
-	fg, bg := image.White, image.Transparent
+	fg, bg := image.Black, image.Transparent
 	rgba := image.NewRGBA(image.Rect(0, 0, 256, 256))
 	draw.Draw(rgba, rgba.Bounds(), bg, image.ZP, draw.Src)
 	c := freetype.NewContext()

@@ -239,6 +239,9 @@ func (self *CubeScene) Init() {
 	gl.DepthFunc(gl.LESS)
 	gl.ClearColor(1.0, 1.0, 1.0, 1.0)
 
+	gl.Enable(gl.BLEND)
+	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+
 	self.angle = 0.0
 	self.SetState(STATE_INITED)
 }
