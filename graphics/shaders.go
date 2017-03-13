@@ -1,11 +1,50 @@
-package windows
+package graphics
 
 import (
 	"fmt"
 	gl "github.com/go-gl/gl/v3.3-core/gl"
+	"io/ioutil"
 	"strings"
 )
 
+var shaderCache = make(map[string]uint32)
+
+func getCachedShader(file string, shaderType uint32) uint32 {
+	if shaderPgm, ok := shaderCache[file]; ok {
+		return shaderPgm
+	}
+
+	shaderSource, err := ioutil.ReadFile(file)
+	if err != nil {
+		panic("failed to open shader " + file + " " + err.Error())
+	}
+	shaderSourceWithNull := string(shaderSource) + "\x00"
+
+	vertexShaderPgm, err := compileShader(shaderSourceWithNull, shaderType)
+	if err != nil {
+		panic(err.Error())
+	}
+	return vertexShaderPgm
+}
+
+func clearShaderCache() {
+	for _, shader := range shaderCache {
+		gl.DeleteShader(shader)
+	}
+}
+
+// ShaderBinder is responsible for binding/setting shader variables
+type ShaderBinder interface {
+
+	// BindFirstTime binds variables that only need to be binded to the program once
+	BindFirstTime()
+
+	// BindEveryTime binds variables that needs to be binded to the program every time
+	BindEveryTime()
+}
+
+// NewProgram compiles a shader program som vertex and fragment sources
+// Deprecated: will be removed at some points
 func NewProgram(vertexShaderSource, fragmentShaderSource string) (uint32, error) {
 	vertexShader, err := compileShader(vertexShaderSource, gl.VERTEX_SHADER)
 	if err != nil {
@@ -41,7 +80,9 @@ func NewProgram(vertexShaderSource, fragmentShaderSource string) (uint32, error)
 	return program, nil
 }
 
+// compileShader compiles a shader program from a source string
 func compileShader(source string, shaderType uint32) (uint32, error) {
+
 	shader := gl.CreateShader(shaderType)
 
 	csource := gl.Str(source)

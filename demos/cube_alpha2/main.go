@@ -182,7 +182,7 @@ func (self *CubeScene) HandleInput(key_events []KeyboardInputEvent, mouse_events
 
 func (self *CubeScene) Init() {
 	// Configure the vertex and fragment shaders
-	program, err := NewProgram(vertexShader, fragmentShader)
+	program, err := graphics.NewProgram(vertexShader, fragmentShader)
 	if err != nil {
 		panic(err)
 	}

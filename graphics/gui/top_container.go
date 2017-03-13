@@ -3,7 +3,7 @@ package gui
 import (
 	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/go-gl/mathgl/mgl32"
-	//"github.com/krapulacoders/krapulaengine2/graphics"
+	"github.com/krapulacoders/krapulaengine2/graphics"
 	"github.com/krapulacoders/krapulaengine2/windows"
 )
 
@@ -86,7 +86,7 @@ void main() {
 
 func (self *TopContainerType) Init() {
 	// Configure the vertex and fragment shaders
-	program, err := windows.NewProgram(vertexShader, fragmentShader)
+	program, err := graphics.NewProgram(vertexShader, fragmentShader)
 	if err != nil {
 		panic(err)
 	}

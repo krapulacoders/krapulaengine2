@@ -2,12 +2,19 @@ package graphics
 
 import (
 	"fmt"
-	"github.com/go-gl/gl/v3.3-core/gl"
 	"image"
 	"image/draw"
 	_ "image/png"
 	"os"
+
+	"github.com/go-gl/gl/v3.3-core/gl"
 )
+
+type TextureManager interface {
+	LoadTextureFromFile(file string) (uint32, error)
+
+	LoadTextureFromImage(img *image.RGBA) (uint32, error)
+}
 
 func NewTextureFromFile(file string) (uint32, error) {
 	imgFile, err := os.Open(file)
