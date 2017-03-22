@@ -9,9 +9,9 @@ type Image struct {
 	texture uint32
 }
 
-func (self *Image) Render() {
+func (img *Image) Render() {
 	gl.ActiveTexture(gl.TEXTURE0)
-	gl.BindTexture(gl.TEXTURE_2D, self.texture)
+	gl.BindTexture(gl.TEXTURE_2D, img.texture)
 
 	//gl.DrawArrays(gl.TRIANGLES, 0, 6*2*3)
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/go-gl/glfw/v3.1/glfw"
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/krapulacoders/krapulaengine2/graphics"
-	. "github.com/krapulacoders/krapulaengine2/windows"
+	"github.com/krapulacoders/krapulaengine2/windows"
 )
 
 const windowWidth = 800
@@ -23,19 +23,18 @@ func init() {
 }
 
 func main() {
-	InitWindowing()
-	defer glfw.Terminate()
 
-	font_regular, err := graphics.ReadFont("RobotoMono-Regular.ttf")
-	img, err := graphics.GenerateImageFromFont("Hello World", font_regular, 16)
+	fontRegular, err := graphics.ReadFont("RobotoMono-Regular.ttf")
+	img, err := graphics.GenerateImageFromFont("Hello World", fontRegular, 16)
 	if err != nil {
 		panic(err.Error())
 	}
 
-	scene := NewCubeScene(img)
-	MainWindow.AddScene("cube", scene)
-	MainWindow.SetCurrentScene("cube")
-	MainWindow.MainLoop()
+	scene := newCubeScene(img)
+	windows.Init()
+	windows.AddScene("cube", scene)
+	windows.SetCurrentScene("cube")
+	windows.MainLoop()
 
 }
 
@@ -114,79 +113,79 @@ var cubeVertices = []float32{
 	1.0, 1.0, 1.0, 0.0, 1.0,
 }
 
-type CubeScene struct {
-	SimpleSceneImpl
+type cubeScene struct {
+	windows.SimpleSceneImpl
 
-	angle                       float32
-	model                       mgl32.Mat4
-	program                     uint32
-	modelUniform                int32
-	vao, vbo                    uint32
-	texture_text, texture_image uint32
-	rotate_direction            float32
-	image                       *image.RGBA
-	show_text                   bool
+	angle                     float32
+	model                     mgl32.Mat4
+	program                   uint32
+	modelUniform              int32
+	vao, vbo                  uint32
+	textureText, textureImage uint32
+	rotateDirection           float32
+	image                     *image.RGBA
+	showText                  bool
 }
 
-func NewCubeScene(img *image.RGBA) *CubeScene {
-	scene := new(CubeScene)
-	scene.SetState(STATE_UNINITED)
-	scene.rotate_direction = 1
+func newCubeScene(img *image.RGBA) *cubeScene {
+	scene := new(cubeScene)
+	scene.SetState(windows.STATE_UNINITED)
+	scene.rotateDirection = 1
 	scene.image = img
 	return scene
 }
 
-func (self *CubeScene) Tick(timedelta float64, key_states []bool) {
-	if key_states[glfw.KeyLeft] {
-		self.angle -= float32(timedelta)
+func (s *cubeScene) Tick(timedelta float64, keyStates []bool) {
+	if keyStates[glfw.KeyLeft] {
+		s.angle -= float32(timedelta)
 	}
-	if key_states[glfw.KeyRight] {
-		self.angle += float32(timedelta)
+	if keyStates[glfw.KeyRight] {
+		s.angle += float32(timedelta)
 	}
 }
 
-func (self *CubeScene) Render() {
+func (s *cubeScene) Render() {
 
-	self.model = mgl32.HomogRotate3D(float32(self.angle), mgl32.Vec3{0, 1, 0})
+	s.model = mgl32.HomogRotate3D(float32(s.angle), mgl32.Vec3{0, 1, 0})
 
 	// Render
-	gl.UseProgram(self.program)
-	gl.UniformMatrix4fv(self.modelUniform, 1, false, &self.model[0])
+	gl.UseProgram(s.program)
+	gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
 
-	gl.BindVertexArray(self.vao)
+	gl.BindVertexArray(s.vao)
 
 	gl.ActiveTexture(gl.TEXTURE0)
-	if self.show_text {
-		gl.BindTexture(gl.TEXTURE_2D, self.texture_text)
+	if s.showText {
+		gl.BindTexture(gl.TEXTURE_2D, s.textureText)
 	} else {
-		gl.BindTexture(gl.TEXTURE_2D, self.texture_image)
+		gl.BindTexture(gl.TEXTURE_2D, s.textureImage)
 	}
 
 	gl.DrawArrays(gl.TRIANGLES, 0, 6*2*3)
 }
 
-func (self *CubeScene) HandleInput(key_events []KeyboardInputEvent, mouse_events []MouseInputEvent) WindowAction {
+func (s *cubeScene) HandleInput(keyEvents []windows.KeyboardInputEvent, mouseEvents []windows.MouseInputEvent) windows.WindowAction {
 	// nothing for now
-	for _, event := range key_events {
+	for _, event := range keyEvents {
 		switch event.Key {
 		case glfw.KeyEscape:
-			return WINDOW_ACTION_EXIT
+			return windows.WINDOW_ACTION_EXIT
 		case glfw.KeySpace:
 			if event.Action == glfw.Press {
-				self.show_text = !self.show_text
+				s.showText = !s.showText
 			}
 		}
 	}
-	return WINDOW_ACTION_NONE
+	return windows.WINDOW_ACTION_NONE
 }
 
-func (self *CubeScene) Init() {
+func (s *cubeScene) Init() {
 	// Configure the vertex and fragment shaders
 	program, err := graphics.NewProgram(vertexShader, fragmentShader)
 	if err != nil {
 		panic(err)
 	}
-	self.program = program
+	s.program = program
 
 	gl.UseProgram(program)
 
@@ -198,9 +197,9 @@ func (self *CubeScene) Init() {
 	cameraUniform := gl.GetUniformLocation(program, gl.Str("camera\x00"))
 	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
-	self.model = mgl32.Ident4()
-	self.modelUniform = gl.GetUniformLocation(program, gl.Str("model\x00"))
-	gl.UniformMatrix4fv(self.modelUniform, 1, false, &self.model[0])
+	s.model = mgl32.Ident4()
+	s.modelUniform = gl.GetUniformLocation(program, gl.Str("model\x00"))
+	gl.UniformMatrix4fv(s.modelUniform, 1, false, &s.model[0])
 
 	textureUniform := gl.GetUniformLocation(program, gl.Str("tex\x00"))
 	gl.Uniform1i(textureUniform, 0)
@@ -208,21 +207,21 @@ func (self *CubeScene) Init() {
 	gl.BindFragDataLocation(program, 0, gl.Str("outputColor\x00"))
 
 	// Load the textures
-	self.texture_text, err = graphics.NewTextureFromImage(self.image)
+	s.textureText, err = graphics.RegisterTextureFromImage("hello_world", s.image)
 	if err != nil {
 		panic(err)
 	}
-	self.texture_image, err = graphics.NewTextureFromFile("square.png")
+	s.textureImage, err = graphics.RegisterTextureFromFile("square", "square.png")
 	if err != nil {
 		panic(err)
 	}
 
 	// Configure the vertex data
-	gl.GenVertexArrays(1, &self.vao)
-	gl.BindVertexArray(self.vao)
+	gl.GenVertexArrays(1, &s.vao)
+	gl.BindVertexArray(s.vao)
 
-	gl.GenBuffers(1, &self.vbo)
-	gl.BindBuffer(gl.ARRAY_BUFFER, self.vbo)
+	gl.GenBuffers(1, &s.vbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, s.vbo)
 	gl.BufferData(gl.ARRAY_BUFFER, len(cubeVertices)*4, gl.Ptr(cubeVertices), gl.STATIC_DRAW)
 
 	vertAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vert\x00")))
@@ -241,6 +240,6 @@ func (self *CubeScene) Init() {
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
-	self.angle = 0.0
-	self.SetState(STATE_INITED)
+	s.angle = 0.0
+	s.SetState(windows.STATE_INITED)
 }

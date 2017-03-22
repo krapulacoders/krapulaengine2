@@ -4,6 +4,7 @@ import (
 	"github.com/go-gl/glfw/v3.1/glfw"
 )
 
+// KeyboardInputEvent represents a glfw keyboard event
 type KeyboardInputEvent struct {
 	Key      glfw.Key
 	Scancode int
@@ -11,6 +12,7 @@ type KeyboardInputEvent struct {
 	Mod      glfw.ModifierKey
 }
 
+// MouseInputEvent represents a glfw mouse event
 type MouseInputEvent struct {
 	Button glfw.MouseButton
 	Action glfw.Action

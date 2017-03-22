@@ -2,18 +2,18 @@ package main
 
 import (
 	"github.com/go-gl/glfw/v3.1/glfw"
-	"github.com/krapulacoders/krapulaengine2/graphics/gui"
 	"github.com/krapulacoders/krapulaengine2/windows"
 )
 
 func main() {
 	windows.Init()
-	gui.InitTopContainer()
-	dummyScene := new(backgroundScene)
-	windows.AddScene("dummy", dummyScene)
-	windows.SetCurrentScene("dummy")
-	windows.AddOverlay("gui", gui.TopContainer)
+
+	lineScene := new(backgroundScene)
+	windows.AddScene("lines", lineScene)
+	windows.SetCurrentScene("lines")
 	windows.MainLoop()
+
+	//line1 := rendergroups.GenericObject2D{[]mgl32.Vec2{-1, -1, 1, 1}, }
 }
 
 type backgroundScene struct {
@@ -34,6 +34,6 @@ func (s *backgroundScene) HandleInput(keyEvents []windows.KeyboardInputEvent, mo
 	return windows.WINDOW_ACTION_NONE
 }
 
-func (s *backgroundScene) Tick(timedelta float64, keyStates []bool) {}
+func (s *backgroundScene) Tick(timedelta float64, keyStates []bool) {
 
-func (s *backgroundScene) Render() {}
+}

@@ -1,9 +1,10 @@
 package windows
 
 import (
-	"github.com/go-gl/glfw/v3.1/glfw"
 	"testing"
 	"time"
+
+	"github.com/go-gl/glfw/v3.1/glfw"
 )
 
 /* Tests that glfw3 is properly set up and working on the system.
@@ -32,11 +33,10 @@ func TestGLFW(t *testing.T) {
 // Create a window and have the mainloop run for 50 milliseconds,
 // then close it.
 func TestWindow(t *testing.T) {
-	InitWindowing()
-	MainWindow.Init()
+	Init()
 	go func() {
 		time.Sleep(50 * time.Millisecond)
-		MainWindow.Exit()
+		Exit()
 	}()
-	MainWindow.MainLoop()
+	MainLoop()
 }

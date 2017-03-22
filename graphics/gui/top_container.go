@@ -10,7 +10,7 @@ import (
 var TopContainer *TopContainerType
 
 func InitTopContainer() {
-	TopContainer = newTopContainer(windows.MainWindow)
+	TopContainer = newTopContainer()
 }
 
 // An invisible container that covers the entire window
@@ -26,11 +26,11 @@ type TopContainerType struct {
 	vao, vbo      int
 }
 
-func newTopContainer(window *windows.Window) *TopContainerType {
+func newTopContainer() *TopContainerType {
 	c := new(TopContainerType)
 	c.SetState(windows.STATE_UNINITED)
 
-	c.width, c.height = window.GetSize()
+	c.width, c.height = windows.GetSize()
 	c.children = make([]Component, 0, 10)
 	return c
 }

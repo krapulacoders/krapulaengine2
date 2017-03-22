@@ -26,10 +26,7 @@ type Scene interface {
 	HandleInput(key_events []KeyboardInputEvent, mouse_events []MouseInputEvent) WindowAction
 
 	// Update the game frame and process time-dependant input
-	Tick(timedelta float64, key_states []bool)
-
-	// Render the scene
-	Render()
+	Tick(timedelta float64, keyStates []bool)
 
 	// Some scenes might want to ignore input or pause if they aren't focused
 	SetFocused(is_focused bool)

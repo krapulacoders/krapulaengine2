@@ -1,15 +1,16 @@
 package graphics
 
 import (
-	"github.com/golang/freetype"
-	"github.com/golang/freetype/truetype"
 	"image"
 	"image/draw"
-	_ "image/png"
 	"io/ioutil"
+
+	"github.com/golang/freetype"
+	"github.com/golang/freetype/truetype"
 )
 
-func GenerateImageFromFont(text string, font *truetype.Font, font_size float64) (*image.RGBA, error) {
+// GenerateImageFromFont generates an image from string, font and size.
+func GenerateImageFromFont(text string, font *truetype.Font, fontSize float64) (*image.RGBA, error) {
 	fg, bg := image.Black, image.Transparent
 	rgba := image.NewRGBA(image.Rect(0, 0, 256, 256))
 	draw.Draw(rgba, rgba.Bounds(), bg, image.ZP, draw.Src)
@@ -18,7 +19,7 @@ func GenerateImageFromFont(text string, font *truetype.Font, font_size float64) 
 	//line_spacing := 1.5
 	c.SetDPI(dpi)
 	c.SetFont(font)
-	c.SetFontSize(font_size)
+	c.SetFontSize(fontSize)
 	c.SetClip(rgba.Bounds())
 	c.SetDst(rgba)
 	c.SetSrc(fg)
@@ -26,7 +27,7 @@ func GenerateImageFromFont(text string, font *truetype.Font, font_size float64) 
 	//c.SetHinting(font.HintingFull)
 
 	// Draw the text.
-	pt := freetype.Pt(10, 128+int(c.PointToFixed(font_size)>>6))
+	pt := freetype.Pt(10, 128+int(c.PointToFixed(fontSize)>>6))
 	_, err := c.DrawString(text, pt)
 	if err != nil {
 		return nil, err
@@ -35,13 +36,14 @@ func GenerateImageFromFont(text string, font *truetype.Font, font_size float64) 
 	return rgba, nil
 }
 
-func ReadFont(font_file string) (*truetype.Font, error) {
+// ReadFont reads a file and returns a truetype Font object
+func ReadFont(fontFile string) (*truetype.Font, error) {
 	// Read the font data.
-	font_bytes, err := ioutil.ReadFile(font_file)
+	fontBytes, err := ioutil.ReadFile(fontFile)
 	if err != nil {
 		return nil, err
 	}
-	font, err := freetype.ParseFont(font_bytes)
+	font, err := freetype.ParseFont(fontBytes)
 	if err != nil {
 		return nil, err
 	}

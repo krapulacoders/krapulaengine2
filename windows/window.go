@@ -1,14 +1,15 @@
 package windows
 
 import (
-	gl "github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/go-gl/glfw/v3.1/glfw"
+	"github.com/krapulacoders/krapulaengine2/graphics"
 )
 
+// MainWindow is _the_ window
 var MainWindow = newWindow(800, 600)
 
 // Inits glfw
-func InitWindowing() {
+func initGLFW() {
 
 	if err := glfw.Init(); err != nil {
 		panic("Can't init glfw: " + err.Error())
@@ -29,7 +30,7 @@ const (
 	WINDOW_ACTION_EXIT = iota
 )
 
-//
+// Window is an actual window in the OS.
 type Window struct {
 	window *glfw.Window
 
@@ -49,12 +50,12 @@ type Window struct {
 	quit bool
 
 	// internal input channels
-	key_input        chan KeyboardInputEvent
-	mouse_input      chan MouseInputEvent
-	mouse_x, mouse_y float32
-	key_events       []KeyboardInputEvent
-	mouse_events     []MouseInputEvent
-	key_states       []bool
+	keyInput       chan KeyboardInputEvent
+	mouse_input    chan MouseInputEvent
+	mouseX, mouseY float32
+	keyEvents      []KeyboardInputEvent
+	mouseEvents    []MouseInputEvent
+	keyStates      []bool
 }
 
 // Allocates a new Window
@@ -66,97 +67,99 @@ func newWindow(width, height int) *Window {
 	w.current_scene = ""
 	w.width = width
 	w.height = height
-	w.key_input = make(chan KeyboardInputEvent, 100)
+	w.keyInput = make(chan KeyboardInputEvent, 100)
 	w.mouse_input = make(chan MouseInputEvent, 100)
-	w.key_events = make([]KeyboardInputEvent, 0, 100)
-	w.mouse_events = make([]MouseInputEvent, 0, 100)
-	w.key_states = make([]bool, glfw.KeyLast+1)
+	w.keyEvents = make([]KeyboardInputEvent, 0, 100)
+	w.mouseEvents = make([]MouseInputEvent, 0, 100)
+	w.keyStates = make([]bool, glfw.KeyLast+1)
 	return w
 }
 
-// Creates the window and initializes OpenGL
-func (self *Window) Init() {
+// Init Creates the window and initializes the graphics thread
+func Init() {
+	initGLFW()
 
-	window, err := glfw.CreateWindow(self.width, self.height, "Testing", nil, nil)
+	window, err := glfw.CreateWindow(MainWindow.width, MainWindow.height, "Testing", nil, nil)
 	if err != nil {
 		panic("Can't create window")
 	}
-	self.window = window
-	self.window.MakeContextCurrent()
-	window.SetKeyCallback(keyEventHandler(self))
-	window.SetCursorPosCallback(cursorPosHandler(self))
-	window.SetMouseButtonCallback(mouseButtonEventHandler(self))
+	MainWindow.window = window
+	graphics.InitMasterLoop(
+		func() {
+			MainWindow.window.SwapBuffers()
+		}, func() {
+			MainWindow.window.MakeContextCurrent()
+		})
+	window.SetKeyCallback(keyEventHandler())
+	window.SetCursorPosCallback(cursorPosHandler())
+	window.SetMouseButtonCallback(mouseButtonEventHandler())
 
-	// Initialize Glow
-	if err := gl.Init(); err != nil {
-		panic(err)
-	}
 }
-func keyEventHandler(window *Window) glfw.KeyCallback {
+func keyEventHandler() glfw.KeyCallback {
 	return func(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
-		window.key_input <- KeyboardInputEvent{key, scancode, action, mods}
+		MainWindow.keyInput <- KeyboardInputEvent{key, scancode, action, mods}
 	}
 }
 
-func mouseButtonEventHandler(window *Window) glfw.MouseButtonCallback {
+func mouseButtonEventHandler() glfw.MouseButtonCallback {
 	return func(w *glfw.Window, button glfw.MouseButton, action glfw.Action, mod glfw.ModifierKey) {
-		window.mouse_input <- MouseInputEvent{button, action, mod, window.mouse_x, window.mouse_y}
+		MainWindow.mouse_input <- MouseInputEvent{button, action, mod, MainWindow.mouseX, MainWindow.mouseY}
 	}
 }
 
-func cursorPosHandler(window *Window) glfw.CursorPosCallback {
+func cursorPosHandler() glfw.CursorPosCallback {
 	return func(w *glfw.Window, xpos float64, ypos float64) {
-		window.mouse_x = float32(xpos)
-		window.mouse_y = float32(ypos)
+		MainWindow.mouseX = float32(xpos)
+		MainWindow.mouseY = float32(ypos)
 	}
 }
 
 // The mainloop initializes its scenes and then enters the loop that runs the game.
 // It directs input events to the current scene and any overlays and renders them.
 // When the loop ends, the scenes are terminated
-func (self *Window) MainLoop() {
+func MainLoop() {
 
-	if self.window == nil {
-		self.Init()
+	if MainWindow.window == nil {
+		Init()
 	}
 
 	defer func() {
 		// Terminate all Scenes at exit
-		for _, scene := range self.scenes {
+		for _, scene := range MainWindow.scenes {
 			scene.Exit()
 		}
-		for _, scene := range self.overlays {
+		for _, scene := range MainWindow.overlays {
 			scene.Exit()
 		}
-		self.window = nil
+		MainWindow.window = nil
 		glfw.Terminate()
 	}()
 
-	self.initScenes()
+	initScenes()
 
-	self.quit = false
+	MainWindow.quit = false
 	old_time := glfw.GetTime()
-	for !self.quit {
+	for !MainWindow.quit {
 		new_time := glfw.GetTime()
 		timedelta := new_time - old_time
 		old_time = new_time
 
-		self.processInput()
-		self.tick(timedelta)
-		self.render()
+		processInput()
+		tick(timedelta)
+		render()
 
 	}
 }
 
 // Init() scenes, then Run() them
-func (self *Window) initScenes() {
+func initScenes() {
 	// Init all scenes
-	for _, scene := range self.scenes {
+	for _, scene := range MainWindow.scenes {
 		if !scene.IsInited() {
 			scene.Init()
 		}
 	}
-	for _, scene := range self.overlays {
+	for _, scene := range MainWindow.overlays {
 		if !scene.IsInited() {
 			scene.Init()
 		}
@@ -164,55 +167,56 @@ func (self *Window) initScenes() {
 
 	// Mark all scenes as running.
 	// This is done after Init because scenes may depend on each other being inited.
-	for _, scene := range self.scenes {
+	for _, scene := range MainWindow.scenes {
 		scene.Run()
 	}
-	for _, scene := range self.overlays {
+	for _, scene := range MainWindow.overlays {
 		scene.Run()
 	}
 }
 
-func (self *Window) Exit() {
-	self.quit = true
+func Exit() {
+	MainWindow.quit = true
+	graphics.DeinitMasterLoop()
 }
 
-func (self *Window) AddScene(id string, scene Scene) {
-	if _, exists := self.scenes[id]; exists {
+func AddScene(id string, scene Scene) {
+	if _, exists := MainWindow.scenes[id]; exists {
 		panic("Tried adding scene twice to window")
 	}
-	self.scenes[id] = scene
-	if self.current_scene == "" {
-		self.SetCurrentScene(id)
+	MainWindow.scenes[id] = scene
+	if MainWindow.current_scene == "" {
+		SetCurrentScene(id)
 	}
 }
 
-func (self *Window) SetCurrentScene(id string) {
-	self.current_scene = id
+func SetCurrentScene(id string) {
+	MainWindow.current_scene = id
 }
 
-func (self *Window) AddOverlay(id string, scene Scene) {
-	if _, exists := self.overlays[id]; exists {
+func AddOverlay(id string, scene Scene) {
+	if _, exists := MainWindow.overlays[id]; exists {
 		panic("Tried adding overlay twice to window")
 	}
-	self.overlays[id] = scene
+	MainWindow.overlays[id] = scene
 }
 
-func (self *Window) processInput() {
+func processInput() {
 
 	// process input
 	glfw.PollEvents()
 	// clear the slice
-	self.key_events = self.key_events[:0]
+	MainWindow.keyEvents = MainWindow.keyEvents[:0]
 	// key events
 	has_input := true
 	for has_input {
 		select {
-		case keyEvent := <-self.key_input:
-			self.key_events = append(self.key_events, keyEvent)
+		case keyEvent := <-MainWindow.keyInput:
+			MainWindow.keyEvents = append(MainWindow.keyEvents, keyEvent)
 			if keyEvent.Action == glfw.Release {
-				self.key_states[keyEvent.Key] = false
+				MainWindow.keyStates[keyEvent.Key] = false
 			} else {
-				self.key_states[keyEvent.Key] = true
+				MainWindow.keyStates[keyEvent.Key] = true
 			}
 		default:
 			has_input = false
@@ -221,12 +225,12 @@ func (self *Window) processInput() {
 
 	// mouse events
 	// clear the slice
-	self.mouse_events = self.mouse_events[:0]
+	MainWindow.mouseEvents = MainWindow.mouseEvents[:0]
 	has_input = true
 	for has_input {
 		select {
-		case mouseEvent := <-self.mouse_input:
-			self.mouse_events = append(self.mouse_events, mouseEvent)
+		case mouseEvent := <-MainWindow.mouse_input:
+			MainWindow.mouseEvents = append(MainWindow.mouseEvents, mouseEvent)
 
 		default:
 			has_input = false
@@ -236,59 +240,43 @@ func (self *Window) processInput() {
 	// Send inputs to scenes
 	// Overlays get input first.
 
-	for _, overlay := range self.overlays {
+	for _, overlay := range MainWindow.overlays {
 		if overlay.AcceptsInput() {
-			action := overlay.HandleInput(self.key_events, self.mouse_events)
+			action := overlay.HandleInput(MainWindow.keyEvents, MainWindow.mouseEvents)
 			switch action {
 			case WINDOW_ACTION_EXIT:
-				self.Exit()
+				Exit()
 			}
 		}
 	}
 
-	for _, scene := range self.scenes {
+	for _, scene := range MainWindow.scenes {
 		if scene.AcceptsInput() {
-			action := scene.HandleInput(self.key_events, self.mouse_events)
+			action := scene.HandleInput(MainWindow.keyEvents, MainWindow.mouseEvents)
 			switch action {
 			case WINDOW_ACTION_EXIT:
-				self.Exit()
+				Exit()
 			}
 		}
 	}
 }
 
-func (self *Window) tick(timedelta float64) {
-	for _, scene := range self.scenes {
-		scene.Tick(timedelta, self.key_states)
+func tick(timedelta float64) {
+	for _, scene := range MainWindow.scenes {
+		scene.Tick(timedelta, MainWindow.keyStates)
 	}
-	for _, overlay := range self.overlays {
-		overlay.Tick(timedelta, self.key_states)
-	}
-}
-
-func (self *Window) render() {
-
-	self.window.MakeContextCurrent()
-
-	// clear screen
-	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-
-	// render current scene
-	if self.current_scene != "" {
-		self.scenes[self.current_scene].Render()
-	}
-
-	// and any overlays
-	for _, overlay := range self.overlays {
-		overlay.Render()
-	}
-
-	self.window.SwapBuffers()
-	if self.window.ShouldClose() {
-		self.quit = true
+	for _, overlay := range MainWindow.overlays {
+		overlay.Tick(timedelta, MainWindow.keyStates)
 	}
 }
 
-func (self *Window) GetSize() (int, int) {
-	return self.window.GetSize()
+func render() {
+
+	if MainWindow.window.ShouldClose() {
+		MainWindow.quit = true
+	}
+}
+
+func GetSize() (int, int) {
+	return MainWindow.window.GetSize()
 }

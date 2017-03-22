@@ -2,9 +2,10 @@ package graphics
 
 import (
 	"fmt"
-	gl "github.com/go-gl/gl/v3.3-core/gl"
 	"io/ioutil"
 	"strings"
+
+	"github.com/go-gl/gl/v3.3-core/gl"
 )
 
 var shaderCache = make(map[string]uint32)
@@ -31,16 +32,6 @@ func clearShaderCache() {
 	for _, shader := range shaderCache {
 		gl.DeleteShader(shader)
 	}
-}
-
-// ShaderBinder is responsible for binding/setting shader variables
-type ShaderBinder interface {
-
-	// BindFirstTime binds variables that only need to be binded to the program once
-	BindFirstTime()
-
-	// BindEveryTime binds variables that needs to be binded to the program every time
-	BindEveryTime()
 }
 
 // NewProgram compiles a shader program som vertex and fragment sources

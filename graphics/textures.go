@@ -1,22 +1,31 @@
 package graphics
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"image/draw"
-	_ "image/png"
 	"os"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
 )
 
-type TextureManager interface {
-	LoadTextureFromFile(file string) (uint32, error)
+var texCache = make(map[string]uint32)
 
-	LoadTextureFromImage(img *image.RGBA) (uint32, error)
+// GetTextureByID returns an opengl texture id identified by a string id.
+func GetTextureByID(id string) (uint32, error) {
+	if texid, ok := texCache[id]; ok {
+		return texid, nil
+	}
+	return 0, errors.New("texture not found: " + id)
 }
 
-func NewTextureFromFile(file string) (uint32, error) {
+// RegisterTextureFromFile first checks the cache for the specified texture id,
+// then it reads it from the file.
+func RegisterTextureFromFile(id string, file string) (uint32, error) {
+	if texid, err := GetTextureByID(id); err == nil {
+		return texid, nil
+	}
 	imgFile, err := os.Open(file)
 	if err != nil {
 		return 0, err
@@ -30,11 +39,16 @@ func NewTextureFromFile(file string) (uint32, error) {
 		return 0, fmt.Errorf("unsupported stride")
 	}
 	draw.Draw(rgba, rgba.Bounds(), img, image.Point{0, 0}, draw.Src)
-	return NewTextureFromImage(rgba)
+	return RegisterTextureFromImage(id, rgba)
 
 }
 
-func NewTextureFromImage(img *image.RGBA) (uint32, error) {
+// RegisterTextureFromImage first checks the cache for the specified texture id,
+// then it creates one from the image.
+func RegisterTextureFromImage(id string, img *image.RGBA) (uint32, error) {
+	if texid, err := GetTextureByID(id); err == nil {
+		return texid, nil
+	}
 
 	var texture uint32
 	gl.GenTextures(1, &texture)

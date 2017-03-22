@@ -15,8 +15,8 @@ func newTestScene() *TestScene {
 	return scene
 }
 
-func (self *TestScene) Init() {
-	self.SetState(STATE_INITED)
+func (s *TestScene) Init() {
+	s.SetState(STATE_INITED)
 }
 
 func TestSimpleSceneImpl(t *testing.T) {
