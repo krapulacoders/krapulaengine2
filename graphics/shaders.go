@@ -34,6 +34,38 @@ func clearShaderCache() {
 	}
 }
 
+// compileShader compiles a shader program from a source string
+func compileShader(source string, shaderType uint32) (uint32, error) {
+
+	shader := gl.CreateShader(shaderType)
+
+	// go 1.6 cgo workaround
+	csource, free := gl.Strs(source)
+	gl.ShaderSource(shader, 1, csource, nil)
+	free()
+	gl.CompileShader(shader)
+
+	var status int32
+	gl.GetShaderiv(shader, gl.COMPILE_STATUS, &status)
+	if status == gl.FALSE {
+		var logLength int32
+		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
+
+		log := strings.Repeat("\x00", int(logLength+1))
+		gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
+		sts := "unknown"
+		switch shaderType {
+		case gl.VERTEX_SHADER:
+			sts = "vertex"
+		case gl.FRAGMENT_SHADER:
+			sts = "fragment"
+		}
+		return 0, fmt.Errorf("failed to compile %v shader %v: \"%v\"", sts, source, log)
+	}
+
+	return shader, nil
+}
+
 // NewProgram compiles a shader program som vertex and fragment sources
 // Deprecated: will be removed at some points
 func NewProgram(vertexShaderSource, fragmentShaderSource string) (uint32, error) {
@@ -69,28 +101,4 @@ func NewProgram(vertexShaderSource, fragmentShaderSource string) (uint32, error)
 	gl.DeleteShader(fragmentShader)
 
 	return program, nil
-}
-
-// compileShader compiles a shader program from a source string
-func compileShader(source string, shaderType uint32) (uint32, error) {
-
-	shader := gl.CreateShader(shaderType)
-
-	csource := gl.Str(source)
-	gl.ShaderSource(shader, 1, &csource, nil)
-	gl.CompileShader(shader)
-
-	var status int32
-	gl.GetShaderiv(shader, gl.COMPILE_STATUS, &status)
-	if status == gl.FALSE {
-		var logLength int32
-		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
-
-		log := strings.Repeat("\x00", int(logLength+1))
-		gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
-
-		return 0, fmt.Errorf("failed to compile %v: %v", source, log)
-	}
-
-	return shader, nil
 }

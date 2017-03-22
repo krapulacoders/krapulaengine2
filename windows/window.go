@@ -122,6 +122,7 @@ func MainLoop() {
 	if MainWindow.window == nil {
 		Init()
 	}
+	graphics.Start()
 
 	defer func() {
 		// Terminate all Scenes at exit
@@ -132,6 +133,7 @@ func MainLoop() {
 			scene.Exit()
 		}
 		MainWindow.window = nil
+		graphics.DeinitMasterLoop()
 		glfw.Terminate()
 	}()
 

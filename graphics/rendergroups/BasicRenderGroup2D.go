@@ -1,4 +1,4 @@
-package graphics
+package rendergroups
 
 import (
 	"strconv"
@@ -48,13 +48,15 @@ type BasicRenderGroup2D struct {
 }
 
 // NewBasicRenderGroup2D creates a new basic 2d render group
-func NewBasicRenderGroup2D(id string, glType uint32, expectedSize int32, changeRatio float32, texture uint32) *graphics.RenderGroup {
+func NewBasicRenderGroup2D(id string, glType uint32, expectedSize int32,
+	changeRatio float32, texture uint32) (*graphics.RenderGroup, *BasicRenderGroup2D) {
 	manager := new(BasicRenderGroup2D)
 	manager.objects = make([]*GenericObject2D, 0, expectedSize)
 	manager.freeIndexes = make([]int, 0, int(float32(expectedSize)*changeRatio))
 	manager.shaderVars = shaders.NewShaderVariableHandler()
 	manager.texture = texture
 	manager.renderType = glType
+	manager.attributes = make(map[int]bool)
 
 	switch glType {
 	case gl.TRIANGLES:
@@ -76,10 +78,10 @@ func NewBasicRenderGroup2D(id string, glType uint32, expectedSize int32, changeR
 	manager.SetAttribute(TexturesEnabled, texture != 0)
 
 	g := graphics.NewRenderGroup(id, manager)
-	g.SetShaderFile("basic.vert")
-	g.SetShaderFile("basic.frag")
+	g.SetShaderFile("graphics/shaders/2d/basic.vert")
+	g.SetShaderFile("graphics/shaders/2d/basic.frag")
 
-	return g
+	return g, manager
 }
 
 // SetAttribute sets an attribute, see *Enabled constants
@@ -128,8 +130,10 @@ func (g *BasicRenderGroup2D) NotifyObjectChanged() {
 // InitShader is run once per program
 func (g *BasicRenderGroup2D) InitShader() {
 	gl.BindFragDataLocation(g.rg.GetShaderProgram(), 0, gl.Str("outputColor\x00"))
-	g.shaderVars.ReadUniformLocations(g.rg.GetShaderProgram(), []string{"normalMatrix"})
+	g.shaderVars.ReadUniformLocations(g.rg.GetShaderProgram(), []string{"normalMatrix", "tex"})
 	g.shaderVars.ReadAttributeLocations(g.rg.GetShaderProgram(), []string{"vert", "vertTexCoord", "rotation", "centerPoint"})
+
+	gl.Uniform1i((int32)(g.shaderVars.Get("tex")), 0)
 }
 
 // Render implements the rendering

@@ -56,8 +56,9 @@ func (g *RenderGroup) GetShaderProgram() uint32 {
 
 func (g *RenderGroup) activateShaderProgram() {
 	if g.shaderPgmNeedsRelink {
-		vertexShaderPgm := getCachedShader(g.fragmentShader, gl.VERTEX_SHADER)
-		fragmentShaderPgm := getCachedShader(g.vertexShader, gl.FRAGMENT_SHADER)
+		gl.UseProgram(0)
+		vertexShaderPgm := getCachedShader(g.vertexShader, gl.VERTEX_SHADER)
+		fragmentShaderPgm := getCachedShader(g.fragmentShader, gl.FRAGMENT_SHADER)
 
 		g.shaderPgm = gl.CreateProgram()
 		gl.AttachShader(g.shaderPgm, vertexShaderPgm)

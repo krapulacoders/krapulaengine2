@@ -14,7 +14,7 @@ const (
 )
 
 type masterLoop struct {
-	managers          map[int]RenderGroup
+	managers          map[int]*RenderGroup
 	nextFreeIndex     int
 	state             int
 	swapBuffers       func()
@@ -25,7 +25,7 @@ var mLoop masterLoop
 
 // InitMasterLoop must be called before starting the graphics system using Start().
 func InitMasterLoop(swapBuffers, makeContextActive func()) {
-	mLoop = masterLoop{make(map[int]RenderGroup), 0, inited, swapBuffers, makeContextActive}
+	mLoop = masterLoop{make(map[int]*RenderGroup), 0, inited, swapBuffers, makeContextActive}
 
 	// context must be set before gl.Init
 	makeContextActive()
@@ -37,7 +37,7 @@ func InitMasterLoop(swapBuffers, makeContextActive func()) {
 
 // AddManager assigns an id to the manager and returns it.
 // This is NOT threadsafe and should not be ran while the graphics loop is running for now
-func AddManager(m RenderGroup) int {
+func AddManager(m *RenderGroup) int {
 	mLoop.managers[mLoop.nextFreeIndex] = m
 	mLoop.nextFreeIndex++
 	return mLoop.nextFreeIndex
@@ -50,7 +50,7 @@ func RemoveManager(id int) {
 }
 
 // GetManager returns the specified manager
-func GetManager(id int) RenderGroup {
+func GetManager(id int) *RenderGroup {
 	return mLoop.managers[id]
 }
 
@@ -79,6 +79,8 @@ func DeinitMasterLoop() {
 }
 
 func mainLoop() {
+	mLoop.makeContextActive()
+	gl.ClearColor(0, 0, 0, 1)
 	for mLoop.state != quit {
 		if mLoop.state == paused {
 			time.Sleep(100 * time.Millisecond)
