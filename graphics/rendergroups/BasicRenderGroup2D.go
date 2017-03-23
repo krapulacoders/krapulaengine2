@@ -1,6 +1,7 @@
 package rendergroups
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 	"unsafe"
@@ -19,7 +20,7 @@ const (
 	// TexturesEnabled attribute
 	TexturesEnabled = iota
 
-	maxArrayElements = 1024 * 1024 * 1024
+	maxArrayElements = 1 << 30
 )
 
 // GenericObject2D struct containing rendering details
@@ -80,6 +81,7 @@ func NewBasicRenderGroup2D(id string, glType uint32, expectedSize int32,
 	g := graphics.NewRenderGroup(id, manager)
 	g.SetShaderFile("graphics/shaders/2d/basic.vert")
 	g.SetShaderFile("graphics/shaders/2d/basic.frag")
+	manager.rg = g
 
 	return g, manager
 }
@@ -151,6 +153,7 @@ func (g *BasicRenderGroup2D) Render() {
 	// just render everything
 	gl.DrawArrays(g.renderType, 0, (int32)(len(g.objects)*g.coordsPerObject))
 
+	fmt.Printf("drew %v vertices\n", len(g.objects)*g.coordsPerObject)
 	g.rendering = false
 }
 
@@ -195,7 +198,8 @@ func (g *BasicRenderGroup2D) setupRendering() {
 		// a single float32
 		rotationSize = totalCoords * 4
 		gl.EnableVertexAttribArray(rotationA)
-		centerPointSize = totalCoords * 2
+		// two float32 per coord
+		centerPointSize = totalCoords * 2 * 4
 		gl.EnableVertexAttribArray(centerPointA)
 	} else {
 		gl.DisableVertexAttribArray(rotationA)
@@ -221,43 +225,62 @@ func (g *BasicRenderGroup2D) setupRendering() {
 	centerPointIndex := rotationIndex + rotationSize
 	textureCoordIndex := centerPointIndex + centerPointSize
 
-	totalSize := vertexSize + colorSize + textureCoordSize + rotationSize + centerPointSize
+	totalSize := vertexSize + colorSize + rotationSize + centerPointSize + textureCoordSize
 
+	//fmt.Printf("==sizes== for %v objects with %v coords\n vertex: %v ___ color: %v ___ rotation:%v ___ center:%v ___ texcoord:%v\n",
+	//	len(g.objects), g.coordsPerObject, vertexSize, colorSize, rotationSize, centerPointSize, textureCoordSize)
 	var vbo uint32
 	gl.GenBuffers(1, &vbo)
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
 	gl.BufferData(gl.ARRAY_BUFFER, totalSize, nil, gl.DYNAMIC_DRAW)
+	bufferPointer := gl.MapBufferRange(gl.ARRAY_BUFFER, 0, totalSize, gl.MAP_READ_BIT|
+		gl.MAP_WRITE_BIT) //|gl.MAP_INVALIDATE_BUFFER_BIT)
+	fmt.Printf("bufferPointer: %v. shaderPgm: %v\n", bufferPointer, g.rg.GetShaderProgram())
+	if bufferPointer == nil {
+		panic("mapping buffer failed")
+	} else {
+		// convert the buffer pointer to go arrays
+		vertexArray := (*((*[maxArrayElements]mgl32.Vec2)(bufferPointer)))[:totalCoords:totalCoords]
+		colorPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(colorIndex))
+		colorArray := (*((*[maxArrayElements]mgl32.Vec4)(colorPointer)))[:totalCoords:totalCoords]
+		rotationPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(rotationIndex))
+		rotationArray := (*((*[maxArrayElements]float32)(rotationPointer)))[:totalCoords:totalCoords]
+		centerPointPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(centerPointIndex))
+		centerPointArray := (*((*[maxArrayElements]mgl32.Vec2)(centerPointPointer)))[:totalCoords:totalCoords]
+		textureCoordPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(textureCoordIndex))
+		textureCoordArray := (*((*[maxArrayElements]mgl32.Vec2)(textureCoordPointer)))[:totalCoords:totalCoords]
+		/*
+			fmt.Printf("==index==\nvertex: %v \ncolor: %v\n rotation: %v\ncenter: %v\n tex: %v\n",
+				(int)((uintptr)(bufferPointer))-(int)((uintptr)(bufferPointer)),
+				(int)((uintptr)(colorPointer))-(int)((uintptr)(bufferPointer)),
+				(int)((uintptr)(rotationPointer))-(int)((uintptr)(bufferPointer)),
+				(int)((uintptr)(centerPointPointer))-(int)((uintptr)(bufferPointer)),
+				(int)((uintptr)(textureCoordPointer))-(int)((uintptr)(bufferPointer)),
+			)
+		*/
+		for oi, obj := range g.objects {
+			for ci := 0; ci < g.coordsPerObject; ci++ {
+				arrayIndex := oi*g.coordsPerObject + ci
+				vertexArray[arrayIndex] = obj.Coords[ci]
 
-	bufferPointer := gl.MapBuffer(vbo, gl.WRITE_ONLY)
-	// convert the buffer pointer to go arrays
-	vertexArray := *((*[maxArrayElements]mgl32.Vec2)(bufferPointer))
-	colorPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(colorIndex))
-	colorArray := *((*[maxArrayElements]mgl32.Vec4)(colorPointer))
-	rotationPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(rotationIndex))
-	rotationArray := *((*[maxArrayElements]float32)(rotationPointer))
-	centerPointPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(textureCoordIndex))
-	centerPointArray := *((*[maxArrayElements]mgl32.Vec2)(centerPointPointer))
-	textureCoordPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(textureCoordIndex))
-	textureCoordArray := *((*[maxArrayElements]mgl32.Vec2)(textureCoordPointer))
-
-	for oi, obj := range g.objects {
-		for ci := 0; ci < g.coordsPerObject; ci++ {
-			arrayIndex := oi*g.coordsPerObject + ci
-			vertexArray[arrayIndex] = obj.Coords[ci]
-
-			if texturesEnabled {
-				textureCoordArray[arrayIndex] = obj.TextureCoords[ci]
+				if texturesEnabled {
+					//fmt.Printf("texture coords set\n")
+					textureCoordArray[arrayIndex] = obj.TextureCoords[ci]
+				}
+				if rotationEnabled {
+					rotationArray[arrayIndex] = obj.Rotation
+					centerPointArray[arrayIndex] = obj.centerPoint
+				}
+				if colorEnabled {
+					colorArray[arrayIndex] = obj.Color
+				}
 			}
-			if rotationEnabled {
-				rotationArray[arrayIndex] = obj.Rotation
-				centerPointArray[arrayIndex] = obj.centerPoint
-			}
-			if colorEnabled {
-				colorArray[arrayIndex] = obj.Color
-			}
+			//fmt.Printf("object: %v\n", obj)
 		}
+		//fmt.Printf("vertex: %v ___ color: %v ___ rotation:%v ___ center:%v ___ texcoord:%v\n", vertexArray, colorArray, rotationArray, centerPointArray, textureCoordArray)
+		//fmt.Printf("raw %v: %v\n", totalSize, (*((*[maxArrayElements]byte)(bufferPointer)))[:totalSize:totalSize])
+		gl.UnmapBuffer(gl.ARRAY_BUFFER)
 	}
-	gl.UnmapBuffer(gl.ARRAY_BUFFER)
 
 	gl.VertexAttribPointer(vertA, 2, gl.FLOAT, false, 0, gl.PtrOffset(0))
 	if colorEnabled {

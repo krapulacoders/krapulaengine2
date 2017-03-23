@@ -28,7 +28,7 @@ type TopContainerType struct {
 
 func newTopContainer() *TopContainerType {
 	c := new(TopContainerType)
-	c.SetState(windows.STATE_UNINITED)
+	c.SetState(windows.StateUninited)
 
 	c.width, c.height = windows.GetSize()
 	c.children = make([]Component, 0, 10)
@@ -57,7 +57,7 @@ func (self *TopContainerType) HandleInput(key_events []windows.KeyboardInputEven
 	for _, event := range key_events {
 		_ = event
 	}
-	return windows.WINDOW_ACTION_NONE
+	return windows.WindowActionNone
 }
 
 func (self *TopContainerType) Program() uint32 {
@@ -96,5 +96,5 @@ func (self *TopContainerType) Init() {
 	// use texture 0
 	textureUniform := gl.GetUniformLocation(program, gl.Str("tex\x00"))
 	gl.Uniform1i(textureUniform, 0)
-	self.SetState(windows.STATE_INITED)
+	self.SetState(windows.StateInited)
 }

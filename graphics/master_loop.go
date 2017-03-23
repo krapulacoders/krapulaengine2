@@ -1,98 +1,76 @@
 package graphics
 
 import (
-	"time"
-
 	gl "github.com/go-gl/gl/v3.3-core/gl"
 )
 
-const (
-	quit    = iota
-	inited  = iota
-	running = iota
-	paused  = iota
-)
-
 type masterLoop struct {
-	managers          map[int]*RenderGroup
+	rendergroups      map[int]*RenderGroup
 	nextFreeIndex     int
-	state             int
-	swapBuffers       func()
-	makeContextActive func()
+	clearColorChanged bool
+	clearColor        [4]float32
 }
 
 var mLoop masterLoop
 
 // InitMasterLoop must be called before starting the graphics system using Start().
-func InitMasterLoop(swapBuffers, makeContextActive func()) {
-	mLoop = masterLoop{make(map[int]*RenderGroup), 0, inited, swapBuffers, makeContextActive}
+func InitMasterLoop() {
+	mLoop = masterLoop{
+		rendergroups: make(map[int]*RenderGroup),
+	}
 
-	// context must be set before gl.Init
-	makeContextActive()
 	// Initialize Glow
 	if err := gl.Init(); err != nil {
 		panic(err)
 	}
+	gl.ClearColor(1, 0, 1, 0)
 }
 
-// AddManager assigns an id to the manager and returns it.
+// SetClearColor sets the clear color.
+func SetClearColor(r, g, b, a float32) {
+	mLoop.clearColorChanged = true
+	mLoop.clearColor[0] = r
+	mLoop.clearColor[1] = g
+	mLoop.clearColor[2] = b
+	mLoop.clearColor[3] = a
+}
+
+// AddRenderGroup assigns an id to the manager and returns it.
 // This is NOT threadsafe and should not be ran while the graphics loop is running for now
-func AddManager(m *RenderGroup) int {
-	mLoop.managers[mLoop.nextFreeIndex] = m
+func AddRenderGroup(g *RenderGroup) int {
+	mLoop.rendergroups[mLoop.nextFreeIndex] = g
 	mLoop.nextFreeIndex++
 	return mLoop.nextFreeIndex
 }
 
-// RemoveManager removes the specified id.
+// RemoveRenderGroup removes the specified id.
 // This is NOT threadsafe and should not be ran while the graphics loop is running for now
-func RemoveManager(id int) {
-	delete(mLoop.managers, id)
+func RemoveRenderGroup(id int) {
+	delete(mLoop.rendergroups, id)
 }
 
-// GetManager returns the specified manager
-func GetManager(id int) *RenderGroup {
-	return mLoop.managers[id]
+// GetRenderGroup returns the specified manager
+func GetRenderGroup(id int) *RenderGroup {
+	return mLoop.rendergroups[id]
 }
 
-// Start starts a goroutine for the graphics loop if one doesn't already exist.
-func Start() {
-	if mLoop.state == inited {
-		go mainLoop()
-	} else if mLoop.state == paused {
-		mLoop.state = running
-	} else {
-		panic("started master loop in state " + string(mLoop.state))
-	}
-}
-
-// Pause the render loop. It will still upload new textures on demand while paused.
-func Pause() {
-	if mLoop.state == quit {
-		panic("started master loop in state " + string(mLoop.state))
-	}
-	mLoop.state = paused
-}
-
-// DeinitMasterLoop stops the graphics thread. It cannot be restarted after this operation.
+// DeinitMasterLoop deinits all rendergroups
 func DeinitMasterLoop() {
-	mLoop.state = quit
+	for _, g := range mLoop.rendergroups {
+		g.Deinit()
+	}
 }
 
-func mainLoop() {
-	mLoop.makeContextActive()
-	gl.ClearColor(0, 0, 0, 1)
-	for mLoop.state != quit {
-		if mLoop.state == paused {
-			time.Sleep(100 * time.Millisecond)
-			continue
-		}
-		mLoop.makeContextActive()
-		mLoop.swapBuffers()
-		// clear screen
-		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+// Render the registered render groups
+func Render() {
+	if mLoop.clearColorChanged {
+		gl.ClearColor(mLoop.clearColor[0], mLoop.clearColor[1], mLoop.clearColor[2], mLoop.clearColor[3])
+		mLoop.clearColorChanged = false
+	}
+	// clear screen
+	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-		for _, manager := range mLoop.managers {
-			manager.Render()
-		}
+	for _, g := range mLoop.rendergroups {
+		g.Render()
 	}
 }

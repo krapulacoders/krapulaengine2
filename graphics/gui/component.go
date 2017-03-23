@@ -105,7 +105,7 @@ func (self *StaticComponentImpl) AcceptsInput() bool {
 }
 
 func (self *StaticComponentImpl) HandleInput(keyEvents []windows.KeyboardInputEvent, mouseEvents []windows.MouseInputEvent) windows.WindowAction {
-	return windows.WINDOW_ACTION_NONE
+	return windows.WindowActionNone
 }
 
 func (self *StaticComponentImpl) Tick(timedelta float64, keyStates []bool) {

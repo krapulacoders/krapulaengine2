@@ -129,7 +129,7 @@ type cubeScene struct {
 
 func newCubeScene(img *image.RGBA) *cubeScene {
 	scene := new(cubeScene)
-	scene.SetState(windows.STATE_UNINITED)
+	scene.SetState(windows.StateUninited)
 	scene.rotateDirection = 1
 	scene.image = img
 	return scene
@@ -169,14 +169,14 @@ func (s *cubeScene) HandleInput(keyEvents []windows.KeyboardInputEvent, mouseEve
 	for _, event := range keyEvents {
 		switch event.Key {
 		case glfw.KeyEscape:
-			return windows.WINDOW_ACTION_EXIT
+			return windows.WindowActionExit
 		case glfw.KeySpace:
 			if event.Action == glfw.Press {
 				s.showText = !s.showText
 			}
 		}
 	}
-	return windows.WINDOW_ACTION_NONE
+	return windows.WindowActionNone
 }
 
 func (s *cubeScene) Init() {
@@ -241,5 +241,5 @@ func (s *cubeScene) Init() {
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
 	s.angle = 0.0
-	s.SetState(windows.STATE_INITED)
+	s.SetState(windows.StateInited)
 }

@@ -11,26 +11,26 @@ type TestScene struct {
 func newTestScene() *TestScene {
 	scene := new(TestScene)
 	scene.state = 999
-	scene.SetState(STATE_UNINITED)
+	scene.SetState(StateUninited)
 	return scene
 }
 
 func (s *TestScene) Init() {
-	s.SetState(STATE_INITED)
+	s.SetState(StateInited)
 }
 
 func TestSimpleSceneImpl(t *testing.T) {
 	scene := newTestScene()
-	if scene.state != STATE_UNINITED {
-		t.Errorf("scene was %v. expected %v", scene.state, STATE_UNINITED)
+	if scene.state != StateUninited {
+		t.Errorf("scene was %v. expected %v", scene.state, StateUninited)
 	}
 	scene.Init()
-	if scene.state != STATE_INITED {
-		t.Errorf("scene was %v. expected %v", scene.state, STATE_INITED)
+	if scene.state != StateInited {
+		t.Errorf("scene was %v. expected %v", scene.state, StateInited)
 	}
 
 	scene.Run()
-	if scene.state != STATE_RUNNING {
-		t.Errorf("scene was %v. expected %v", scene.state, STATE_RUNNING)
+	if scene.state != StateRunning {
+		t.Errorf("scene was %v. expected %v", scene.state, StateRunning)
 	}
 }

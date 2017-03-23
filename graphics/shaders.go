@@ -19,9 +19,8 @@ func getCachedShader(file string, shaderType uint32) uint32 {
 	if err != nil {
 		panic("failed to open shader " + file + " " + err.Error())
 	}
-	shaderSourceWithNull := string(shaderSource) + "\x00"
 
-	vertexShaderPgm, err := compileShader(shaderSourceWithNull, shaderType)
+	vertexShaderPgm, err := compileShader(string(shaderSource), shaderType)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -41,7 +40,9 @@ func compileShader(source string, shaderType uint32) (uint32, error) {
 
 	// go 1.6 cgo workaround
 	csource, free := gl.Strs(source)
-	gl.ShaderSource(shader, 1, csource, nil)
+	srclen := (int32)(len(source))
+
+	gl.ShaderSource(shader, 1, csource, &srclen)
 	free()
 	gl.CompileShader(shader)
 

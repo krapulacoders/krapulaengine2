@@ -21,17 +21,17 @@ type backgroundScene struct {
 }
 
 func (s *backgroundScene) Init() {
-	s.SetState(windows.STATE_INITED)
+	s.SetState(windows.StateInited)
 }
 
 func (s *backgroundScene) HandleInput(keyEvents []windows.KeyboardInputEvent, mouseEvents []windows.MouseInputEvent) windows.WindowAction {
 	for _, event := range keyEvents {
 		switch event.Key {
 		case glfw.KeyEscape:
-			return windows.WINDOW_ACTION_EXIT
+			return windows.WindowActionExit
 		}
 	}
-	return windows.WINDOW_ACTION_NONE
+	return windows.WindowActionNone
 }
 
 func (s *backgroundScene) Tick(timedelta float64, keyStates []bool) {}

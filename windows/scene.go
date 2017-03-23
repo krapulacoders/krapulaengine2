@@ -1,14 +1,15 @@
 package windows
 
+// states
 const (
-	STATE_UNINITED   = iota
-	STATE_INITED     = iota
-	STATE_RUNNING    = iota
-	STATE_PAUSED     = iota
-	STATE_TERMINATED = iota
+	StateUninited   = iota
+	StateInited     = iota
+	StateRunning    = iota
+	StatePaused     = iota
+	StateTerminated = iota
 )
 
-// Scenes are responsible for handling input and rendering their content.
+// Scene are responsible for handling input and rendering their content.
 // They can be in the following states:
 // 1. Uninited - only bare minimum setup at this point
 // 2. Inited - resources should be allocated
@@ -23,13 +24,13 @@ type Scene interface {
 	AcceptsInput() bool
 
 	// Processes input events
-	HandleInput(key_events []KeyboardInputEvent, mouse_events []MouseInputEvent) WindowAction
+	HandleInput(keyEvents []KeyboardInputEvent, mouseEvents []MouseInputEvent) WindowAction
 
 	// Update the game frame and process time-dependant input
 	Tick(timedelta float64, keyStates []bool)
 
 	// Some scenes might want to ignore input or pause if they aren't focused
-	SetFocused(is_focused bool)
+	SetFocused(isFocused bool)
 	IsFocused() bool
 
 	// Init the scene
@@ -52,71 +53,80 @@ type Scene interface {
 	IsTerminated() bool
 }
 
-// Partial Scene Implementation that implements shared basic fields and functionality
+// BasicSceneImpl is a partial Scene implementation that implements shared basic fields and functionality
 // You still need to implement the following functions yourself:
 // Init()
 // HandleInput(key_events []KeyboardInputEvent, mouse_events []MouseInputEvent) WindowAction
 // Tick(timedelta float64, key_states []bool)
-// Render()
-
 type BasicSceneImpl struct {
 	focused bool
 	state   int
 }
 
-func (self *BasicSceneImpl) SetFocused(focused bool) {
-	self.focused = focused
+// SetFocused ...
+func (s *BasicSceneImpl) SetFocused(focused bool) {
+	s.focused = focused
 }
 
-func (self *BasicSceneImpl) IsFocused() bool {
-	return self.focused
+// IsFocused ...
+func (s *BasicSceneImpl) IsFocused() bool {
+	return s.focused
 }
 
-func (self *BasicSceneImpl) IsInited() bool {
-	return self.state != STATE_TERMINATED && self.state != STATE_UNINITED
+// IsInited ...
+func (s *BasicSceneImpl) IsInited() bool {
+	return s.state != StateTerminated && s.state != StateUninited
 }
 
-func (self *BasicSceneImpl) IsRunning() bool {
-	return self.state == STATE_RUNNING
+// IsRunning ...
+func (s *BasicSceneImpl) IsRunning() bool {
+	return s.state == StateRunning
 }
 
-func (self *BasicSceneImpl) IsPaused() bool {
-	return self.state == STATE_PAUSED
+// IsPaused ...
+func (s *BasicSceneImpl) IsPaused() bool {
+	return s.state == StatePaused
 }
 
-func (self *BasicSceneImpl) IsTerminated() bool {
-	return self.state == STATE_TERMINATED
+// IsTerminated ...
+func (s *BasicSceneImpl) IsTerminated() bool {
+	return s.state == StateTerminated
 }
 
-func (self *BasicSceneImpl) SetState(state int) {
-	self.state = state
+// SetState sets state
+func (s *BasicSceneImpl) SetState(state int) {
+	s.state = state
 }
 
-// A simple scene implementation to use when you want default state transitions and input
+// SimpleSceneImpl is a simple scene implementation to use when you want default state transitions and input
 type SimpleSceneImpl struct {
 	BasicSceneImpl
 }
 
-func (self *SimpleSceneImpl) AcceptsInput() bool {
+// AcceptsInput true
+func (s *SimpleSceneImpl) AcceptsInput() bool {
 	return true
 }
 
-func (self *SimpleSceneImpl) Run() {
-	if !self.IsInited() {
-		panic("Cannot run scene that hasn't been inited. state: " + string(self.state))
+// Run checks that the scene is inited and sets the state to running
+func (s *SimpleSceneImpl) Run() {
+	if !s.IsInited() {
+		panic("Cannot run scene that hasn't been inited. state: " + string(s.state))
 	} else {
-		self.SetState(STATE_RUNNING)
+		s.SetState(StateRunning)
 	}
 }
 
-func (self *SimpleSceneImpl) Pause() {
-	if !self.IsRunning() {
+// Pause pauses the scene
+func (s *SimpleSceneImpl) Pause() {
+	if !s.IsRunning() {
 		panic("Cannot pause scene that isn't running")
 	} else {
-		self.SetState(STATE_PAUSED)
+		s.SetState(StatePaused)
 	}
 }
 
-func (self *SimpleSceneImpl) Exit() {
-	self.SetState(STATE_TERMINATED)
+// Exit terminates the scene
+func (s *SimpleSceneImpl) Exit() {
+	s.SetState(StateTerminated)
 }
