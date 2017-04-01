@@ -9,7 +9,7 @@ in vec2 centerPoint;
 in vec4 inColor;
 
 out vec2 fragTexCoord;
-out vec4 outColor;
+out vec4 fragColor;
 
 // standard openGL output
 //out gl_PerVertex {
@@ -18,7 +18,7 @@ out vec4 outColor;
 //    float gl_ClipDistance[];
 //};
 
-vec2 rotate2D(vec2 center, float rotation, vec2 vert) {
+vec2 rotate2D(in vec2 center, in float rotation, in vec2 vert) {
     mat2 rotationMatrix = mat2(
         cos(rotation), sin(rotation), // first column!
         -sin(rotation), cos(rotation)
@@ -27,8 +27,11 @@ vec2 rotate2D(vec2 center, float rotation, vec2 vert) {
 }
 
 void main() {
-    outColor = inColor;
+    fragColor = inColor;
     fragTexCoord = vertTexCoord;
-    vec2 rotated = rotate2D(centerPoint, rotation, vert);
-    gl_Position = vec4( normalMatrix * rotated, 1, 1);
+    vec2 rotated = rotate2D(normalMatrix*centerPoint, rotation, vert);
+    gl_Position = vec4( normalMatrix * rotated, 0, 1);
+    //gl_Position = vec4( vert.x, vert.y, 0, 1);
+    //gl_Position  = vec4(0.5, 0, 0, 1);
+    gl_PointSize=5;
 }

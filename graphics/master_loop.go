@@ -2,6 +2,7 @@ package graphics
 
 import (
 	gl "github.com/go-gl/gl/v3.3-core/gl"
+	"github.com/krapulacoders/krapulaengine2/graphics/errors"
 )
 
 type masterLoop struct {
@@ -69,6 +70,7 @@ func Render() {
 	}
 	// clear screen
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+	errors.AssertGLError(errors.Critical, "glClear")
 
 	for _, g := range mLoop.rendergroups {
 		g.Render()

@@ -21,8 +21,6 @@ func initGLFW() {
 	glfw.WindowHint(glfw.ContextVersionMajor, 3)
 	glfw.WindowHint(glfw.ContextVersionMinor, 3)
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
-	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
-
 }
 
 // WindowAction is something the window should do
@@ -30,8 +28,8 @@ type WindowAction int
 
 // Window actions
 const (
-	WindowActionNone = iota
-	WindowActionExit = iota
+	WindowActionNone WindowAction = iota
+	WindowActionExit              = iota
 )
 
 // Window is an actual window in the OS.
@@ -156,8 +154,8 @@ func MainLoop() {
 		processInput()
 		tick(timedelta)
 
-		MainWindow.window.SwapBuffers()
 		graphics.Render()
+		MainWindow.window.SwapBuffers()
 
 	}
 }
