@@ -2,7 +2,7 @@
 
 uniform mat2 normalMatrix;
 
-in vec2 vert;
+in vec3 vert;
 in vec2 vertTexCoord;
 in float rotation;
 in vec2 centerPoint;
@@ -29,9 +29,9 @@ vec2 rotate2D(in vec2 center, in float rotation, in vec2 vert) {
 void main() {
     fragColor = inColor;
     fragTexCoord = vertTexCoord;
-    vec2 rotated = rotate2D(normalMatrix*centerPoint, rotation, vert);
-    gl_Position = vec4( normalMatrix * rotated, 0, 1);
+    vec2 rotated = rotate2D(centerPoint, rotation, vert.xy);
+    gl_Position = vec4( normalMatrix * rotated, vert.z, 1);
     //gl_Position = vec4( vert.x, vert.y, 0, 1);
     //gl_Position  = vec4(0.5, 0, 0, 1);
-    gl_PointSize=5;
+    gl_PointSize= 5; //5 / ( 2 - gl_Position.z);
 }

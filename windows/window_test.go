@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-gl/glfw/v3.1/glfw"
+	"github.com/go-gl/glfw/v3.2/glfw"
 )
 
 /* Tests that glfw3 is properly set up and working on the system.

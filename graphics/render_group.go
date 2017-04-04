@@ -88,6 +88,7 @@ func (g *RenderGroup) activateShaderProgram() {
 
 		// then do first-time binding
 		g.impl.InitShader()
+		g.shaderPgmNeedsRelink = false
 	}
 
 	if !gl.IsProgram(g.shaderPgm) {

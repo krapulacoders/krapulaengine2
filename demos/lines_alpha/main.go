@@ -5,7 +5,7 @@ import (
 	"math"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
-	"github.com/go-gl/glfw/v3.1/glfw"
+	"github.com/go-gl/glfw/v3.2/glfw"
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/krapulacoders/krapulaengine2/graphics"
 	"github.com/krapulacoders/krapulaengine2/graphics/rendergroups"
@@ -23,46 +23,60 @@ func main() {
 
 }
 
-func getVec2FromAngle(angle float32, size float32) mgl32.Vec2 {
+func getVec3FromAngle(angle, size, z float32) mgl32.Vec3 {
 	a64 := (float64)(angle)
-	return mgl32.Vec2{size * (float32)(math.Cos(a64)), size * (float32)(math.Sin(a64))}
+	return mgl32.Vec3{size * (float32)(math.Cos(a64)), size * (float32)(math.Sin(a64)), z}
 }
 
 type backgroundScene struct {
 	windows.SimpleSceneImpl
-	renderGroup1, renderGroup2 *graphics.RenderGroup
-	lineManager                *rendergroups.BasicRenderGroup2D
-	line1, line2               rendergroups.GenericObject2D
-	triangleManager            *rendergroups.BasicRenderGroup2D
-	triangle1                  rendergroups.GenericObject2D
+	renderGroups    [3]*graphics.RenderGroup
+	lineManager     *rendergroups.BasicRenderGroup2D
+	line1, line2    rendergroups.GenericObject2D
+	triangleManager *rendergroups.BasicRenderGroup2D
+	triangle1       rendergroups.GenericObject2D
+	pointManager    *rendergroups.BasicRenderGroup2D
 }
 
 func (s *backgroundScene) Init() {
 
 	s.line1 = rendergroups.GenericObject2D{
-		Coords: []mgl32.Vec2{getVec2FromAngle(0, 0.3), getVec2FromAngle(math.Pi, 0.3)},
+		Coords: []mgl32.Vec3{getVec3FromAngle(0, 300, -0.5), getVec3FromAngle(math.Pi, 300, -0.5)},
 		Color:  mgl32.Vec4{1, 0, 0, 1},
 	}
 
 	s.line2 = rendergroups.GenericObject2D{
-		Coords: []mgl32.Vec2{getVec2FromAngle(math.Pi/2, 0.7), getVec2FromAngle(3*math.Pi/2, 0.7)},
+		Coords: []mgl32.Vec3{getVec3FromAngle(math.Pi/2, 700, 0.2), getVec3FromAngle(3*math.Pi/2, 800, -0.5)},
 		Color:  mgl32.Vec4{0, 1, 0, 1},
 	}
 
-	s.renderGroup1, s.lineManager = rendergroups.NewBasicRenderGroup2D("test", gl.LINES, 2, 0, 0)
+	s.renderGroups[0], s.lineManager = rendergroups.NewBasicRenderGroup2D("test", gl.LINES, 2, 0, 0)
 	s.lineManager.AddObject(&s.line1)
 	s.lineManager.AddObject(&s.line2)
 
 	s.triangle1 = rendergroups.GenericObject2D{
-		Coords: []mgl32.Vec2{getVec2FromAngle(0, 0.5), getVec2FromAngle(2*math.Pi/3, 0.5), getVec2FromAngle(4*math.Pi/3, 0.6)},
-		Color:  mgl32.Vec4{0, 0, 1, 1},
+		Coords: []mgl32.Vec3{getVec3FromAngle(0, 500, 0), getVec3FromAngle(2*math.Pi/3, 500, 0),
+			getVec3FromAngle(4*math.Pi/3, 600, 0)},
+		Color: mgl32.Vec4{0, 0, 1, 1},
 	}
-	s.renderGroup2, s.triangleManager = rendergroups.NewBasicRenderGroup2D("test", gl.TRIANGLES, 1, 0, 0)
+	s.renderGroups[1], s.triangleManager = rendergroups.NewBasicRenderGroup2D("test", gl.TRIANGLES, 1, 0, 0)
 	s.triangleManager.AddObject(&s.triangle1)
-	s.triangleManager.NotifyObjectChanged()
 
-	graphics.AddRenderGroup(s.renderGroup1)
-	graphics.AddRenderGroup(s.renderGroup2)
+	s.renderGroups[2], s.pointManager = rendergroups.NewBasicRenderGroup2D("test", gl.POINTS, 1, 0, 0)
+	for xi := float32(-800); xi <= 800; xi += 100 {
+		for yi := float32(-800); yi <= 800; yi += 100 {
+			s.pointManager.AddObject(&rendergroups.GenericObject2D{
+				Coords: []mgl32.Vec3{mgl32.Vec3{xi, yi, 0}},
+				Color:  mgl32.Vec4{1, 1, 1, 1},
+			})
+		}
+	}
+
+	for _, g := range s.renderGroups {
+		graphics.AddRenderGroup(g)
+		g.SetDepthTestMode(false, gl.LESS)
+	}
+
 	s.SetState(windows.StateInited)
 }
 

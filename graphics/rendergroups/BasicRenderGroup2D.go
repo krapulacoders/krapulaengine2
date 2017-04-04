@@ -30,7 +30,7 @@ const (
 
 // GenericObject2D struct containing rendering details
 type GenericObject2D struct {
-	Coords        []mgl32.Vec2
+	Coords        []mgl32.Vec3
 	Color         mgl32.Vec4
 	Rotation      float32
 	centerPoint   mgl32.Vec2
@@ -45,8 +45,8 @@ type BasicRenderGroup2D struct {
 	coordsPerObject int
 	objects         []*GenericObject2D
 	freeIndexes     []int
-	vaos            []uint32
-	vbo             int
+	vao             uint32
+	vbo             uint32
 	attributes      map[BasicRenderGroup2DAttribute]bool
 	rendering       bool
 	texture         uint32
@@ -147,6 +147,11 @@ func (g *BasicRenderGroup2D) InitShader() {
 		[]string{"vert", "vertTexCoord", "rotation", "centerPoint", "inColor"})
 	errors.AssertGLError(errors.Normal, "after read attributes")
 
+	gl.GenVertexArrays(1, &g.vao)
+	errors.AssertGLError(errors.Critical, "glGenVertexArrays")
+	gl.GenBuffers(1, &g.vbo)
+	errors.AssertGLError(errors.Critical, "glGenBuffers")
+
 	//gl.Uniform1i((int32)(g.shaderVars.Get("tex")), 0)
 	//errors.AssertGLError(errors.Normal, fmt.Sprintf("Uniform1i(%v, 0)", int32(g.shaderVars.Get("tex"))))
 }
@@ -159,6 +164,7 @@ func (g *BasicRenderGroup2D) Render() {
 		g.setupRendering()
 		g.hasChanged = false
 	}
+	gl.BindVertexArray(g.vao)
 	if g.attributes[TexturesEnabled] {
 		gl.ActiveTexture(gl.TEXTURE0)
 		gl.BindTexture(gl.TEXTURE_2D, g.texture)
@@ -166,12 +172,23 @@ func (g *BasicRenderGroup2D) Render() {
 	}
 	gl.LineWidth(5)
 
+	// uniforms
+	normalMatrixUniform := g.shaderVars.GetUniform("normalMatrix")
+	textureUniform := g.shaderVars.GetUniform("tex")
+	normalMatrix := graphics.GetSimpleNormalMatrixMat2()
+	fmt.Printf("normalMatrix: %v", normalMatrix)
+	gl.UniformMatrix2fv(normalMatrixUniform, 1, false, &normalMatrix[0])
+	errors.AssertGLError(errors.Debug, fmt.Sprintf("normalMatrix: %v", textureUniform))
+
+	//gl.Uniform1i(textureUniform, 0)
+	//errors.AssertGLError(errors.Debug, fmt.Sprintf("tex (sampler2D). id: %v", textureUniform))
+
 	errors.AssertGLError(errors.Debug, "before glDrawArrays")
 	// just render everything
 	gl.DrawArrays(g.renderType, 0, (int32)(len(g.objects)*g.coordsPerObject))
 	errors.AssertGLError(errors.Normal, "glDrawArrays")
 
-	fmt.Printf("drew %v vertices\n", len(g.objects)*g.coordsPerObject)
+	//fmt.Printf("drew %v vertices\n", len(g.objects)*g.coordsPerObject)
 	g.rendering = false
 }
 
@@ -197,18 +214,10 @@ func (g *BasicRenderGroup2D) setupRendering() {
 	centerPointA := uint32(g.shaderVars.GetAttribute("centerPoint"))
 	vertTexCoordA := uint32(g.shaderVars.GetAttribute("vertTexCoord"))
 
-	fmt.Printf("%v %v %v %v %v\n", vertA, InColorA, rotationA, centerPointA, vertTexCoordA)
+	gl.BindVertexArray(g.vao)
 
-	normalMatrixUniform := g.shaderVars.GetUniform("normalMatrix")
-	textureUniform := g.shaderVars.GetUniform("tex")
-
-	var vao uint32
-	gl.GenVertexArrays(1, &vao)
-	gl.BindVertexArray(vao)
-	errors.AssertGLError(errors.Critical, "glGenVertexArrays")
-
-	// one coord: 2 float32: 2*4.
-	vertexSize = totalCoords * 2 * 4
+	// one coord: 3 float32: 2*4.
+	vertexSize = totalCoords * 3 * 4
 
 	if colorEnabled {
 		// RGBA: 4* float32 = 4*4
@@ -237,18 +246,16 @@ func (g *BasicRenderGroup2D) setupRendering() {
 
 	//fmt.Printf("==sizes== for %v objects with %v coords\n vertex: %v ___ color: %v ___ rotation:%v ___ center:%v ___ texcoord:%v\n",
 	//	len(g.objects), g.coordsPerObject, vertexSize, colorSize, rotationSize, centerPointSize, textureCoordSize)
-	var vbo uint32
-	gl.GenBuffers(1, &vbo)
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, g.vbo)
 	gl.BufferData(gl.ARRAY_BUFFER, totalSize, nil, gl.DYNAMIC_DRAW)
-	bufferPointer := gl.MapBufferRange(gl.ARRAY_BUFFER, 0, totalSize,
-		gl.MAP_WRITE_BIT|gl.MAP_READ_BIT) //gl.MAP_INVALIDATE_BUFFER_BIT)
+	bufferPointer := gl.MapBufferRange(gl.ARRAY_BUFFER, 0, totalSize, // gl.MAP_READ_BIT|
+		gl.MAP_WRITE_BIT|gl.MAP_INVALIDATE_BUFFER_BIT)
 	fmt.Printf("bufferPointer: %v. shaderPgm: %v\n", bufferPointer, g.rg.GetShaderProgram())
 	if bufferPointer == nil {
 		panic("mapping buffer failed")
 	}
 	// convert the buffer pointer to go arrays
-	vertexArray := (*((*[maxArrayElements]mgl32.Vec2)(bufferPointer)))[:totalCoords:totalCoords]
+	vertexArray := (*((*[maxArrayElements]mgl32.Vec3)(bufferPointer)))[:totalCoords:totalCoords]
 	colorPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(colorIndex))
 	colorArray := (*((*[maxArrayElements]mgl32.Vec4)(colorPointer)))[:totalCoords:totalCoords]
 	rotationPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(rotationIndex))
@@ -285,26 +292,22 @@ func (g *BasicRenderGroup2D) setupRendering() {
 		}
 		//fmt.Printf("object: %v\n", obj)
 	}
-	fmt.Printf("vertex: %v ___ color: %v ___ rotation:%v ___ center:%v ___ texcoord:%v\n", vertexArray, colorArray, rotationArray, centerPointArray, textureCoordArray)
-	fmt.Printf("raw %v: %v\n", totalSize, (*((*[maxArrayElements]byte)(bufferPointer)))[:totalSize:totalSize])
-	fmt.Printf("raw %v: %v\n", totalSize, (*((*[maxArrayElements]float32)(bufferPointer)))[:totalSize/4:totalSize/4])
+	//fmt.Printf("vertex: %v ___ color: %v ___ rotation:%v ___ center:%v ___ texcoord:%v\n", vertexArray, colorArray, rotationArray, centerPointArray, textureCoordArray)
+	//fmt.Printf("raw %v: %v\n", totalSize, (*((*[maxArrayElements]byte)(bufferPointer)))[:totalSize:totalSize])
+	//fmt.Printf("raw %v: %v\n", totalSize, (*((*[maxArrayElements]float32)(bufferPointer)))[:totalSize/4:totalSize/4])
 	gl.UnmapBuffer(gl.ARRAY_BUFFER)
 	errors.AssertGLError(errors.Critical, "glUnmapBuffer")
 
-	errors.AssertGLError(errors.Normal, fmt.Sprintf("glBindBuffer(gl.ARRAY_BUFFER, %v)", vbo))
-	fmt.Printf("vbo: %v\n", vbo)
-	gl.VertexAttribPointer(vertA, 2, gl.FLOAT, false, 0, gl.PtrOffset(0))
+	errors.AssertGLError(errors.Normal, fmt.Sprintf("glBindBuffer(gl.ARRAY_BUFFER, %v)", g.vbo))
+	gl.VertexAttribPointer(vertA, 3, gl.FLOAT, false, 0, gl.PtrOffset(0))
 	gl.EnableVertexAttribArray(vertA)
-	fmt.Printf("vertA: %v\n", vertA)
 	errors.AssertGLError(errors.Normal, "vertex attribute vertex")
 
 	if colorEnabled {
 		gl.VertexAttribPointer(InColorA, 4, gl.FLOAT, false, 0, gl.PtrOffset(colorIndex))
 		gl.EnableVertexAttribArray(InColorA)
-		fmt.Printf("InColorA: %v\n", InColorA)
 	} else {
 		gl.DisableVertexAttribArray(InColorA)
-		fmt.Printf("disabling %v", InColorA)
 		// default color is white
 		gl.VertexAttrib4f(InColorA, 1, 1, 1, 1)
 	}
@@ -314,10 +317,8 @@ func (g *BasicRenderGroup2D) setupRendering() {
 		if texturesEnabled {
 			gl.VertexAttribPointer(vertTexCoordA, 2, gl.FLOAT, false, 0, gl.PtrOffset(textureCoordIndex))
 			gl.EnableVertexAttribArray(vertTexCoordA)
-			fmt.Printf("vertTexCoordA: %v\n", vertTexCoordA)
 		} else {
 			gl.DisableVertexAttribArray(vertTexCoordA)
-			fmt.Printf("disabling %v", vertTexCoordA)
 			// default rotation is 0
 			gl.VertexAttrib2f(vertTexCoordA, 0, 0)
 		}
@@ -331,27 +332,15 @@ func (g *BasicRenderGroup2D) setupRendering() {
 		gl.EnableVertexAttribArray(rotationA)
 		gl.EnableVertexAttribArray(centerPointA)
 		errors.AssertGLError(errors.Normal, "vertex attribute rotation")
-		fmt.Printf("rotationA: %v\n", rotationA)
-		fmt.Printf("centerPointA: %v\n", centerPointA)
 	} else {
 		gl.DisableVertexAttribArray(rotationA)
 		gl.DisableVertexAttribArray(centerPointA)
-		fmt.Printf("disabling %v, %v", rotationA, centerPointA)
 		// default rotation is 0
 		gl.VertexAttrib1f(rotationA, 0)
 		gl.VertexAttrib2f(centerPointA, 0, 0)
 	}
 
 	errors.AssertGLError(errors.Normal, "vertex attribute rotation")
-
-	// uniforms
-	normalMatrix := mgl32.Mat2{1, 0, 0, 1}
-	gl.UniformMatrix2fv(normalMatrixUniform, 1, false, &normalMatrix[0])
-	errors.AssertGLError(errors.Debug, fmt.Sprintf("normalMatrix: %v", textureUniform))
-
-	//gl.Uniform1i(textureUniform, 0)
-	//errors.AssertGLError(errors.Debug, fmt.Sprintf("tex (sampler2D). id: %v", textureUniform))
-
 }
 
 // Deinit does nothing

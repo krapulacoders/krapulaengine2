@@ -3,7 +3,7 @@ package windows
 import (
 	"runtime"
 
-	"github.com/go-gl/glfw/v3.1/glfw"
+	"github.com/go-gl/glfw/v3.2/glfw"
 	"github.com/krapulacoders/krapulaengine2/graphics"
 )
 
@@ -17,7 +17,7 @@ func initGLFW() {
 		panic("Can't init glfw: " + err.Error())
 	}
 
-	glfw.WindowHint(glfw.Resizable, glfw.False)
+	glfw.WindowHint(glfw.Resizable, glfw.True)
 	glfw.WindowHint(glfw.ContextVersionMajor, 3)
 	glfw.WindowHint(glfw.ContextVersionMinor, 3)
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
@@ -93,6 +93,12 @@ func Init() {
 	window.SetKeyCallback(keyEventHandler())
 	window.SetCursorPosCallback(cursorPosHandler())
 	window.SetMouseButtonCallback(mouseButtonEventHandler())
+	window.SetFramebufferSizeCallback(func(window *glfw.Window, w, h int) {
+		graphics.SetViewPortSize(w, h)
+	})
+	// also set initial viewpost size...
+	w, h := window.GetFramebufferSize()
+	graphics.SetViewPortSize(w, h)
 
 }
 func keyEventHandler() glfw.KeyCallback {
