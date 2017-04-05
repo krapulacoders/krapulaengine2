@@ -1,11 +1,12 @@
 #version 330
 
-uniform mat2 normalMatrix;
+uniform mat4 normalMatrix;
+uniform mat4 modelMatrix;
 
 in vec3 vert;
 in vec2 vertTexCoord;
 in float rotation;
-in vec2 centerPoint;
+in vec3 centerPoint;
 in vec4 inColor;
 
 out vec2 fragTexCoord;
@@ -18,10 +19,29 @@ out vec4 fragColor;
 //    float gl_ClipDistance[];
 //};
 
-vec2 rotate2D(in vec2 center, in float rotation, in vec2 vert) {
-    mat2 rotationMatrix = mat2(
-        cos(rotation), sin(rotation), // first column!
-        -sin(rotation), cos(rotation)
+vec3 rotateAroundZ(in vec3 center, in float rotation, in vec3 vert) {
+    mat3 rotationMatrix = mat3(
+        cos(rotation), sin(rotation), 0, // first column!
+        -sin(rotation), cos(rotation), 0,
+        0, 0, 1
+    );
+    return center + rotationMatrix * (vert - center);
+}
+
+vec3 rotateAroundX(in vec3 center, in float rotation, in vec3 vert) {
+    mat3 rotationMatrix = mat3(
+        1, 0, 0,
+        0, cos(rotation), sin(rotation), // first column!
+        0, -sin(rotation), cos(rotation)
+    );
+    return center + rotationMatrix * (vert - center);
+}
+
+vec3 rotateAroundY(in vec3 center, in float rotation, in vec3 vert) {
+    mat3 rotationMatrix = mat3(
+        cos(rotation), 0, -sin(rotation), // first column!
+        0, 1, 0,
+        sin(rotation), 0, cos(rotation)
     );
     return center + rotationMatrix * (vert - center);
 }
@@ -29,9 +49,7 @@ vec2 rotate2D(in vec2 center, in float rotation, in vec2 vert) {
 void main() {
     fragColor = inColor;
     fragTexCoord = vertTexCoord;
-    vec2 rotated = rotate2D(centerPoint, rotation, vert.xy);
-    gl_Position = vec4( normalMatrix * rotated, vert.z, 1);
-    //gl_Position = vec4( vert.x, vert.y, 0, 1);
-    //gl_Position  = vec4(0.5, 0, 0, 1);
-    gl_PointSize= 5; //5 / ( 2 - gl_Position.z);
+    vec3 rotated = rotateAroundZ(centerPoint, rotation, vert);
+    gl_Position = normalMatrix * modelMatrix * vec4(rotated, 1);
+    gl_PointSize= 10 * ( 1.1 - gl_Position.z);
 }

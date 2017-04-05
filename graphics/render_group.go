@@ -122,9 +122,11 @@ func (g *RenderGroup) Render() {
 		errors.AssertGLError(errors.Debug, "gl enable depth test")
 		gl.DepthFunc(g.depthTestFunc)
 		errors.AssertGLError(errors.Debug, "gl set depth func")
+		gl.DepthMask(true)
 	} else {
 		gl.Disable(gl.DEPTH_TEST)
 		errors.AssertGLError(errors.Debug, "gl disable depth test")
+		gl.DepthMask(false)
 	}
 
 	if g.blendEnabled {

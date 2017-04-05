@@ -7,15 +7,22 @@ import (
 )
 
 type masterLoop struct {
-	rendergroups      map[int]*RenderGroup
-	nextFreeIndex     int
-	clearColorChanged bool
-	clearColor        [4]float32
-	width, height     float32
-	viewportChanged   bool
+	rendergroups                map[int]*RenderGroup
+	nextFreeIndex               int
+	clearColorChanged           bool
+	clearColor                  [4]float32
+	width, height               float32
+	viewportChanged             bool
+	precalculatedNormalMatrices [2]mgl32.Mat4
 }
 
 var mLoop masterLoop
+
+// Normal matrix IDs
+const (
+	NormalMatrixOrthoOrigo       = iota
+	NormalMatrixOrthoScreenCords = iota
+)
 
 // InitMasterLoop must be called before starting the graphics system using Start().
 func InitMasterLoop() {
@@ -35,6 +42,11 @@ func InitMasterLoop() {
 	gl.Hint(gl.LINE_SMOOTH_HINT, gl.NICEST)
 }
 
+func reCalculateNormalMatrices() {
+	mLoop.precalculatedNormalMatrices[NormalMatrixOrthoOrigo] = getNormalMatrixOrthoOrigo()
+	mLoop.precalculatedNormalMatrices[NormalMatrixOrthoScreenCords] = getNormalMatrixOrthoScreenCords()
+}
+
 // SetClearColor sets the clear color.
 func SetClearColor(r, g, b, a float32) {
 	mLoop.clearColor[0] = r
@@ -48,6 +60,7 @@ func SetClearColor(r, g, b, a float32) {
 func SetViewPortSize(x, y int) {
 	mLoop.width, mLoop.height = (float32)(x), (float32)(y)
 	mLoop.viewportChanged = true
+	reCalculateNormalMatrices()
 }
 
 // GetViewPortSize returns the size of the rendering area
@@ -55,9 +68,18 @@ func GetViewPortSize() mgl32.Vec2 {
 	return mgl32.Vec2{(float32)(mLoop.width), (float32)(mLoop.height)}
 }
 
-// GetSimpleNormalMatrixMat2 returns a very simple normal matrix for 2d rendering
-func GetSimpleNormalMatrixMat2() mgl32.Mat2 {
-	return mgl32.Mat2{2 / mLoop.width, 0, 0, 2 / mLoop.height}
+func GetNormalMatrix(id int) mgl32.Mat4 {
+	return mLoop.precalculatedNormalMatrices[id]
+}
+
+// getNormalMatrixOrthoOrigo returns a normal matrix centered around origo, with the size of the framebuffer
+func getNormalMatrixOrthoOrigo() mgl32.Mat4 {
+	return mgl32.Ortho(-mLoop.width/2, mLoop.width/2, -mLoop.height/2, mLoop.height/2, -1, 1)
+}
+
+// GetNormalMatrixOrthoScreenCords returns a normal matrix covering (0, 0) -> (width, height)
+func getNormalMatrixOrthoScreenCords() mgl32.Mat4 {
+	return mgl32.Ortho(0, mLoop.width, -mLoop.height, 0, -1, 1)
 }
 
 // AddRenderGroup assigns an id to the manager and returns it.
@@ -99,6 +121,11 @@ func Render() {
 	// clear screen
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 	errors.AssertGLError(errors.Critical, "glClear")
+
+	//var depthBits int32
+	//gl.GetFramebufferAttachmentParameteriv(gl.DRAW_FRAMEBUFFER, gl.DEPTH, gl.FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE, &depthBits)
+	//fmt.Printf("depth bits: %v\n", depthBits)
+	//errors.AssertGLError(errors.Debug, "glGetFramebufferAttachmentParameteriv")
 
 	for _, g := range mLoop.rendergroups {
 		g.Render()

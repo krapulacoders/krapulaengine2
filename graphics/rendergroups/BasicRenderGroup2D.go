@@ -33,7 +33,7 @@ type GenericObject2D struct {
 	Coords        []mgl32.Vec3
 	Color         mgl32.Vec4
 	Rotation      float32
-	centerPoint   mgl32.Vec2
+	centerPoint   mgl32.Vec3
 	TextureCoords []mgl32.Vec2
 }
 
@@ -51,6 +51,7 @@ type BasicRenderGroup2D struct {
 	rendering       bool
 	texture         uint32
 	hasChanged      bool
+	modelMatrix     mgl32.Mat4
 }
 
 // NewBasicRenderGroup2D creates a new basic 2d render group
@@ -82,6 +83,8 @@ func NewBasicRenderGroup2D(id string, glType uint32, expectedSize int32,
 	manager.SetAttribute(ColorEnabled, true)
 	manager.SetAttribute(RotationEnabled, true)
 	manager.SetAttribute(TexturesEnabled, texture != 0)
+
+	manager.modelMatrix = mgl32.Ident4()
 
 	g := graphics.NewRenderGroup(id, manager)
 	g.SetShaderFile("graphics/shaders/2d/basic.vert")
@@ -140,7 +143,7 @@ func (g *BasicRenderGroup2D) InitShader() {
 	errors.AssertGLError(errors.Normal, "glBindFragDataLocation")
 
 	g.shaderVars.ReadUniformLocations(g.rg.GetShaderProgram(),
-		[]string{"normalMatrix", "tex"})
+		[]string{"normalMatrix", "tex", "modelMatrix", "textureUsed"})
 	errors.AssertGLError(errors.Normal, "after read uniforms")
 
 	g.shaderVars.ReadAttributeLocations(g.rg.GetShaderProgram(),
@@ -154,34 +157,49 @@ func (g *BasicRenderGroup2D) InitShader() {
 
 	//gl.Uniform1i((int32)(g.shaderVars.Get("tex")), 0)
 	//errors.AssertGLError(errors.Normal, fmt.Sprintf("Uniform1i(%v, 0)", int32(g.shaderVars.Get("tex"))))
+
 }
 
 // Render implements the rendering
 func (g *BasicRenderGroup2D) Render() {
 	errors.AssertGLError(errors.Debug, "BasicRenderGroup2D.Render")
+
+	// uniforms
+	normalMatrixUniform := g.shaderVars.GetUniform("normalMatrix")
+	modelMatrixUniform := g.shaderVars.GetUniform("modelMatrix")
+	textureUniform := g.shaderVars.GetUniform("tex")
+	textureUsedUniform := g.shaderVars.GetUniform("textureUsed")
+
 	g.rendering = true
 	if g.hasChanged {
 		g.setupRendering()
 		g.hasChanged = false
 	}
 	gl.BindVertexArray(g.vao)
+	texturesEnabled := int32(0)
 	if g.attributes[TexturesEnabled] {
 		gl.ActiveTexture(gl.TEXTURE0)
 		gl.BindTexture(gl.TEXTURE_2D, g.texture)
 		errors.AssertGLError(errors.Normal, "glBindTexture")
+		texturesEnabled = 1
 	}
 	gl.LineWidth(5)
 
-	// uniforms
-	normalMatrixUniform := g.shaderVars.GetUniform("normalMatrix")
-	textureUniform := g.shaderVars.GetUniform("tex")
-	normalMatrix := graphics.GetSimpleNormalMatrixMat2()
-	fmt.Printf("normalMatrix: %v", normalMatrix)
-	gl.UniformMatrix2fv(normalMatrixUniform, 1, false, &normalMatrix[0])
+	normalMatrix := graphics.GetNormalMatrix(graphics.NormalMatrixOrthoOrigo)
+	//fmt.Printf("normalMatrix: %v", normalMatrix)
+	gl.UniformMatrix4fv(normalMatrixUniform, 1, false, &normalMatrix[0])
 	errors.AssertGLError(errors.Debug, fmt.Sprintf("normalMatrix: %v", textureUniform))
 
-	//gl.Uniform1i(textureUniform, 0)
-	//errors.AssertGLError(errors.Debug, fmt.Sprintf("tex (sampler2D). id: %v", textureUniform))
+	//fmt.Printf("normalMatrix: %v", normalMatrix)
+	gl.UniformMatrix4fv(modelMatrixUniform, 1, false, &g.modelMatrix[0])
+	errors.AssertGLError(errors.Debug, fmt.Sprintf("modelMatrix: %v", textureUniform))
+
+	gl.Uniform1i(textureUniform, 0)
+	errors.AssertGLError(errors.Debug, fmt.Sprintf("tex (sampler2D). id: %v", textureUniform))
+	//fmt.Printf("tex uniform: %v\n", textureUniform)
+
+	gl.Uniform1i(textureUsedUniform, texturesEnabled)
+	errors.AssertGLError(errors.Debug, fmt.Sprintf("textureUsed uniform: %v= %v", textureUsedUniform, texturesEnabled))
 
 	errors.AssertGLError(errors.Debug, "before glDrawArrays")
 	// just render everything
@@ -228,7 +246,7 @@ func (g *BasicRenderGroup2D) setupRendering() {
 		// a single float32
 		rotationSize = totalCoords * 4
 		// two float32 per coord
-		centerPointSize = totalCoords * 2 * 4
+		centerPointSize = totalCoords * 3 * 4
 	}
 
 	if texturesEnabled {
@@ -261,7 +279,7 @@ func (g *BasicRenderGroup2D) setupRendering() {
 	rotationPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(rotationIndex))
 	rotationArray := (*((*[maxArrayElements]float32)(rotationPointer)))[:totalCoords:totalCoords]
 	centerPointPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(centerPointIndex))
-	centerPointArray := (*((*[maxArrayElements]mgl32.Vec2)(centerPointPointer)))[:totalCoords:totalCoords]
+	centerPointArray := (*((*[maxArrayElements]mgl32.Vec3)(centerPointPointer)))[:totalCoords:totalCoords]
 	textureCoordPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(textureCoordIndex))
 	textureCoordArray := (*((*[maxArrayElements]mgl32.Vec2)(textureCoordPointer)))[:totalCoords:totalCoords]
 	/*

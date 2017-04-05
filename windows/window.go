@@ -158,6 +158,9 @@ func MainLoop() {
 			MainWindow.quit = true
 		}
 		processInput()
+		if MainWindow.quit {
+			break
+		}
 		tick(timedelta)
 
 		graphics.Render()

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"math/rand"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
@@ -66,7 +67,7 @@ func (s *backgroundScene) Init() {
 	for xi := float32(-800); xi <= 800; xi += 100 {
 		for yi := float32(-800); yi <= 800; yi += 100 {
 			s.pointManager.AddObject(&rendergroups.GenericObject2D{
-				Coords: []mgl32.Vec3{mgl32.Vec3{xi, yi, 0}},
+				Coords: []mgl32.Vec3{mgl32.Vec3{xi, yi, rand.Float32()*2 - 1}},
 				Color:  mgl32.Vec4{1, 1, 1, 1},
 			})
 		}
@@ -74,7 +75,7 @@ func (s *backgroundScene) Init() {
 
 	for _, g := range s.renderGroups {
 		graphics.AddRenderGroup(g)
-		g.SetDepthTestMode(false, gl.LESS)
+		g.SetDepthTestMode(true, gl.LESS)
 	}
 
 	s.SetState(windows.StateInited)
