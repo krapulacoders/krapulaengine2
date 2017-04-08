@@ -28,12 +28,23 @@ const (
 	maxArrayElements = 1 << 30
 )
 
+// RotationMode is an enum type for rotation aces
+type RotationMode int32
+
+// enum for rotation axes
+const (
+	RotationNone RotationMode = iota
+	RotationX                 = iota
+	RotationY                 = iota
+	RotationZ                 = iota
+)
+
 // GenericObject2D struct containing rendering details
 type GenericObject2D struct {
 	Coords        []mgl32.Vec3
 	Color         mgl32.Vec4
-	Rotation      float32
-	centerPoint   mgl32.Vec3
+	Angles        [2]float32
+	CenterPoint   mgl32.Vec3
 	TextureCoords []mgl32.Vec2
 }
 
@@ -41,17 +52,19 @@ type GenericObject2D struct {
 type BasicRenderGroup2D struct {
 	rg              *graphics.RenderGroup
 	shaderVars      *shaders.ShaderVariableHandler
-	renderType      uint32
 	coordsPerObject int
 	objects         []*GenericObject2D
 	freeIndexes     []int
-	vao             uint32
-	vbo             uint32
 	attributes      map[BasicRenderGroup2DAttribute]bool
 	rendering       bool
 	texture         uint32
 	hasChanged      bool
 	modelMatrix     mgl32.Mat4
+	rotationMode    [2]RotationMode
+	// render state
+	vao        uint32
+	vbo        uint32
+	renderType uint32
 }
 
 // NewBasicRenderGroup2D creates a new basic 2d render group
@@ -81,7 +94,6 @@ func NewBasicRenderGroup2D(id string, glType uint32, expectedSize int32,
 
 	}
 	manager.SetAttribute(ColorEnabled, true)
-	manager.SetAttribute(RotationEnabled, true)
 	manager.SetAttribute(TexturesEnabled, texture != 0)
 
 	manager.modelMatrix = mgl32.Ident4()
@@ -97,6 +109,14 @@ func NewBasicRenderGroup2D(id string, glType uint32, expectedSize int32,
 // SetAttribute sets an attribute, see *Enabled constants
 func (g *BasicRenderGroup2D) SetAttribute(attribute BasicRenderGroup2DAttribute, value bool) {
 	g.attributes[attribute] = value
+}
+
+// SetRotationModes sets which axis the first and second rotation should be around.
+// Also enables rotation if it isn't already enabled.
+func (g *BasicRenderGroup2D) SetRotationModes(r1, r2 RotationMode) {
+	g.rotationMode[0] = r1
+	g.rotationMode[1] = r2
+	g.SetAttribute(RotationEnabled, true)
 }
 
 // AddObject adds an object and returns an id for it.
@@ -143,11 +163,11 @@ func (g *BasicRenderGroup2D) InitShader() {
 	errors.AssertGLError(errors.Normal, "glBindFragDataLocation")
 
 	g.shaderVars.ReadUniformLocations(g.rg.GetShaderProgram(),
-		[]string{"normalMatrix", "tex", "modelMatrix", "textureUsed"})
+		[]string{"normalMatrix", "tex", "modelMatrix", "textureUsed", "rotationMode"})
 	errors.AssertGLError(errors.Normal, "after read uniforms")
 
 	g.shaderVars.ReadAttributeLocations(g.rg.GetShaderProgram(),
-		[]string{"vert", "vertTexCoord", "rotation", "centerPoint", "inColor"})
+		[]string{"vert", "vertTexCoord", "angles", "centerPoint", "inColor"})
 	errors.AssertGLError(errors.Normal, "after read attributes")
 
 	gl.GenVertexArrays(1, &g.vao)
@@ -169,6 +189,7 @@ func (g *BasicRenderGroup2D) Render() {
 	modelMatrixUniform := g.shaderVars.GetUniform("modelMatrix")
 	textureUniform := g.shaderVars.GetUniform("tex")
 	textureUsedUniform := g.shaderVars.GetUniform("textureUsed")
+	rotationModeUniform := g.shaderVars.GetUniform("rotationMode")
 
 	g.rendering = true
 	if g.hasChanged {
@@ -201,8 +222,11 @@ func (g *BasicRenderGroup2D) Render() {
 	gl.Uniform1i(textureUsedUniform, texturesEnabled)
 	errors.AssertGLError(errors.Debug, fmt.Sprintf("textureUsed uniform: %v= %v", textureUsedUniform, texturesEnabled))
 
+	gl.Uniform2i(rotationModeUniform, (int32)(g.rotationMode[0]), (int32)(g.rotationMode[1]))
+
 	errors.AssertGLError(errors.Debug, "before glDrawArrays")
 	// just render everything
+
 	gl.DrawArrays(g.renderType, 0, (int32)(len(g.objects)*g.coordsPerObject))
 	errors.AssertGLError(errors.Normal, "glDrawArrays")
 
@@ -215,7 +239,7 @@ func (g *BasicRenderGroup2D) setupRendering() {
 	vertexSize := 0
 	colorSize := 0
 	textureCoordSize := 0
-	rotationSize := 0
+	anglesSize := 0
 	centerPointSize := 0
 	if g.coordsPerObject == 0 {
 		panic("not implemented")
@@ -228,7 +252,7 @@ func (g *BasicRenderGroup2D) setupRendering() {
 
 	vertA := uint32(g.shaderVars.GetAttribute("vert"))
 	InColorA := uint32(g.shaderVars.GetAttribute("inColor"))
-	rotationA := uint32(g.shaderVars.GetAttribute("rotation"))
+	anglesA := uint32(g.shaderVars.GetAttribute("angles"))
 	centerPointA := uint32(g.shaderVars.GetAttribute("centerPoint"))
 	vertTexCoordA := uint32(g.shaderVars.GetAttribute("vertTexCoord"))
 
@@ -243,8 +267,8 @@ func (g *BasicRenderGroup2D) setupRendering() {
 	}
 
 	if rotationEnabled {
-		// a single float32
-		rotationSize = totalCoords * 4
+		// two float32
+		anglesSize = totalCoords * 2 * 4
 		// two float32 per coord
 		centerPointSize = totalCoords * 3 * 4
 	}
@@ -256,11 +280,11 @@ func (g *BasicRenderGroup2D) setupRendering() {
 
 	vertexIndex := 0
 	colorIndex := vertexIndex + vertexSize
-	rotationIndex := colorIndex + colorSize
-	centerPointIndex := rotationIndex + rotationSize
+	anglesIndex := colorIndex + colorSize
+	centerPointIndex := anglesIndex + anglesSize
 	textureCoordIndex := centerPointIndex + centerPointSize
 
-	totalSize := vertexSize + colorSize + rotationSize + centerPointSize + textureCoordSize
+	totalSize := vertexSize + colorSize + anglesSize + centerPointSize + textureCoordSize
 
 	//fmt.Printf("==sizes== for %v objects with %v coords\n vertex: %v ___ color: %v ___ rotation:%v ___ center:%v ___ texcoord:%v\n",
 	//	len(g.objects), g.coordsPerObject, vertexSize, colorSize, rotationSize, centerPointSize, textureCoordSize)
@@ -276,8 +300,8 @@ func (g *BasicRenderGroup2D) setupRendering() {
 	vertexArray := (*((*[maxArrayElements]mgl32.Vec3)(bufferPointer)))[:totalCoords:totalCoords]
 	colorPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(colorIndex))
 	colorArray := (*((*[maxArrayElements]mgl32.Vec4)(colorPointer)))[:totalCoords:totalCoords]
-	rotationPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(rotationIndex))
-	rotationArray := (*((*[maxArrayElements]float32)(rotationPointer)))[:totalCoords:totalCoords]
+	anglesPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(anglesIndex))
+	anglesArray := (*((*[maxArrayElements]mgl32.Vec2)(anglesPointer)))[:totalCoords:totalCoords]
 	centerPointPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(centerPointIndex))
 	centerPointArray := (*((*[maxArrayElements]mgl32.Vec3)(centerPointPointer)))[:totalCoords:totalCoords]
 	textureCoordPointer := unsafe.Pointer(((uintptr)(bufferPointer)) + (uintptr)(textureCoordIndex))
@@ -286,7 +310,7 @@ func (g *BasicRenderGroup2D) setupRendering() {
 		fmt.Printf("==index==\nvertex: %v \ncolor: %v\n rotation: %v\ncenter: %v\n tex: %v\n",
 			(int)((uintptr)(bufferPointer))-(int)((uintptr)(bufferPointer)),
 			(int)((uintptr)(colorPointer))-(int)((uintptr)(bufferPointer)),
-			(int)((uintptr)(rotationPointer))-(int)((uintptr)(bufferPointer)),
+			(int)((uintptr)(anglesPointer))-(int)((uintptr)(bufferPointer)),
 			(int)((uintptr)(centerPointPointer))-(int)((uintptr)(bufferPointer)),
 			(int)((uintptr)(textureCoordPointer))-(int)((uintptr)(bufferPointer)),
 		)
@@ -301,8 +325,8 @@ func (g *BasicRenderGroup2D) setupRendering() {
 				textureCoordArray[arrayIndex] = obj.TextureCoords[ci]
 			}
 			if rotationEnabled {
-				rotationArray[arrayIndex] = obj.Rotation
-				centerPointArray[arrayIndex] = obj.centerPoint
+				anglesArray[arrayIndex] = obj.Angles
+				centerPointArray[arrayIndex] = obj.CenterPoint
 			}
 			if colorEnabled {
 				colorArray[arrayIndex] = obj.Color
@@ -310,7 +334,7 @@ func (g *BasicRenderGroup2D) setupRendering() {
 		}
 		//fmt.Printf("object: %v\n", obj)
 	}
-	//fmt.Printf("vertex: %v ___ color: %v ___ rotation:%v ___ center:%v ___ texcoord:%v\n", vertexArray, colorArray, rotationArray, centerPointArray, textureCoordArray)
+	//fmt.Printf("vertex: %v ___ color: %v ___ angles:%v ___ center:%v ___ texcoord:%v\n", vertexArray, colorArray, anglesArray, centerPointArray, textureCoordArray)
 	//fmt.Printf("raw %v: %v\n", totalSize, (*((*[maxArrayElements]byte)(bufferPointer)))[:totalSize:totalSize])
 	//fmt.Printf("raw %v: %v\n", totalSize, (*((*[maxArrayElements]float32)(bufferPointer)))[:totalSize/4:totalSize/4])
 	gl.UnmapBuffer(gl.ARRAY_BUFFER)
@@ -345,16 +369,16 @@ func (g *BasicRenderGroup2D) setupRendering() {
 	errors.AssertGLError(errors.Normal, "vertex attribute textures")
 
 	if rotationEnabled {
-		gl.VertexAttribPointer(rotationA, 1, gl.FLOAT, false, 0, gl.PtrOffset(rotationIndex))
-		gl.VertexAttribPointer(centerPointA, 2, gl.FLOAT, false, 0, gl.PtrOffset(centerPointIndex))
-		gl.EnableVertexAttribArray(rotationA)
+		gl.VertexAttribPointer(anglesA, 2, gl.FLOAT, false, 0, gl.PtrOffset(anglesIndex))
+		gl.VertexAttribPointer(centerPointA, 3, gl.FLOAT, false, 0, gl.PtrOffset(centerPointIndex))
+		gl.EnableVertexAttribArray(anglesA)
 		gl.EnableVertexAttribArray(centerPointA)
 		errors.AssertGLError(errors.Normal, "vertex attribute rotation")
 	} else {
-		gl.DisableVertexAttribArray(rotationA)
+		gl.DisableVertexAttribArray(anglesA)
 		gl.DisableVertexAttribArray(centerPointA)
 		// default rotation is 0
-		gl.VertexAttrib1f(rotationA, 0)
+		gl.VertexAttrib1f(anglesA, 0)
 		gl.VertexAttrib2f(centerPointA, 0, 0)
 	}
 

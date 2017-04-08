@@ -33,7 +33,7 @@ type backgroundScene struct {
 	windows.SimpleSceneImpl
 	renderGroups    [3]*graphics.RenderGroup
 	lineManager     *rendergroups.BasicRenderGroup2D
-	line1, line2    rendergroups.GenericObject2D
+	lines           [3]rendergroups.GenericObject2D
 	triangleManager *rendergroups.BasicRenderGroup2D
 	triangle1       rendergroups.GenericObject2D
 	pointManager    *rendergroups.BasicRenderGroup2D
@@ -41,19 +41,27 @@ type backgroundScene struct {
 
 func (s *backgroundScene) Init() {
 
-	s.line1 = rendergroups.GenericObject2D{
-		Coords: []mgl32.Vec3{getVec3FromAngle(0, 300, -0.5), getVec3FromAngle(math.Pi, 300, -0.5)},
+	s.lines[0] = rendergroups.GenericObject2D{
+		Coords: []mgl32.Vec3{getVec3FromAngle(0, 300, -0.5), getVec3FromAngle(math.Pi, 300, 0.5)},
 		Color:  mgl32.Vec4{1, 0, 0, 1},
 	}
 
-	s.line2 = rendergroups.GenericObject2D{
+	s.lines[1] = rendergroups.GenericObject2D{
 		Coords: []mgl32.Vec3{getVec3FromAngle(math.Pi/2, 700, 0.2), getVec3FromAngle(3*math.Pi/2, 800, -0.5)},
 		Color:  mgl32.Vec4{0, 1, 0, 1},
 	}
 
+	s.lines[2] = rendergroups.GenericObject2D{
+		Coords:      []mgl32.Vec3{{-100, 100, -0.2}, {100, 100, 1}},
+		Color:       mgl32.Vec4{0, 1, 0, 1},
+		CenterPoint: mgl32.Vec3{300, 100, 0},
+	}
+
 	s.renderGroups[0], s.lineManager = rendergroups.NewBasicRenderGroup2D("test", gl.LINES, 2, 0, 0)
-	s.lineManager.AddObject(&s.line1)
-	s.lineManager.AddObject(&s.line2)
+	s.lineManager.AddObject(&s.lines[0])
+	s.lineManager.AddObject(&s.lines[1])
+	s.lineManager.AddObject(&s.lines[2])
+	s.lineManager.SetRotationModes(rendergroups.RotationZ, rendergroups.RotationNone)
 
 	s.triangle1 = rendergroups.GenericObject2D{
 		Coords: []mgl32.Vec3{getVec3FromAngle(0, 500, 0), getVec3FromAngle(2*math.Pi/3, 500, 0),
@@ -96,8 +104,10 @@ var increment float32 = 0.001
 
 func (s *backgroundScene) Tick(timedelta float64, keyStates []bool) {
 	// rotate in different directions 1/4 rotations per second
-	s.line1.Rotation += (float32)(timedelta * math.Pi / 4)
-	s.line2.Rotation -= (float32)(timedelta * math.Pi / 4)
+	s.lines[0].Angles[0] += (float32)(timedelta * math.Pi / 4)
+	s.lines[1].Angles[0] -= (float32)(timedelta * math.Pi / 4)
+	s.lines[2].Angles[0] -= (float32)(timedelta * math.Pi)
+	s.lines[2].CenterPoint = getVec3FromAngle(s.lines[2].Angles[0], 300, 1)
 	s.lineManager.NotifyObjectChanged()
 	s.triangleManager.NotifyObjectChanged()
 	fmt.Println("tick!")

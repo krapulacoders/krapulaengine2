@@ -68,6 +68,7 @@ func GetViewPortSize() mgl32.Vec2 {
 	return mgl32.Vec2{(float32)(mLoop.width), (float32)(mLoop.height)}
 }
 
+// GetNormalMatrix returns a precalculated normalMatrix
 func GetNormalMatrix(id int) mgl32.Mat4 {
 	return mLoop.precalculatedNormalMatrices[id]
 }
